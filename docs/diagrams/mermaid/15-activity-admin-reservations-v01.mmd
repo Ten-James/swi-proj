@@ -1,0 +1,9 @@
+flowchart TD
+    A[Admin opens Reservation management] --> B{Authorized Admin?}
+    B -- No --> X[Reject]
+    B -- Yes --> C[Load Reservations]
+    C --> D[Filter / inspect]
+    D --> E{State-changing action?}
+    E -- No --> F[Return view]
+    E -- Yes --> G[Apply same domain rules]
+    G --> H[Return result]

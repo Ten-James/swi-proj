@@ -1,0 +1,9 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Admin správa rezervací v0.1"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A[shape=box,label="Admin opens\nReservation management"]; B[shape=diamond,label="Authorized Admin?"];
+  C[shape=box,label="Load Reservations"]; D[shape=box,label="Filter / inspect"];
+  E[shape=diamond,label="State-changing action?"]; F[shape=box,label="Return view"];
+  G[shape=box,label="Apply same domain rules"]; H[shape=box,label="Return result"]; X[shape=box,label="Reject"];
+  A->B; B->X[label="No"]; B->C[label="Yes"]; C->D->E; E->F[label="No"]; E->G[label="Yes"]; G->H;
+}

@@ -1,0 +1,14 @@
+stateDiagram-v2
+    [*] --> CONFIRMED : create [approval not required, checks pass]
+    [*] --> PENDING_APPROVAL : create [approval required, checks pass]
+
+    PENDING_APPROVAL --> CONFIRMED : approve
+    PENDING_APPROVAL --> REJECTED : reject
+    PENDING_APPROVAL --> EXPIRED : approval deadline reached
+    PENDING_APPROVAL --> CANCELLED : cancel [before start]
+
+    CONFIRMED --> CANCELLED : cancel [before start]
+
+    CANCELLED --> [*]
+    REJECTED --> [*]
+    EXPIRED --> [*]

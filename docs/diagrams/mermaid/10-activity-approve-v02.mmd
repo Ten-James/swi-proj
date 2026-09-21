@@ -1,0 +1,8 @@
+flowchart TD
+    A[Admin opens PENDING_APPROVAL] --> B{Expired?}
+    B -- Yes --> E[Set EXPIRED]
+    B -- No --> C{Decision}
+    C -- Reject --> R[Set REJECTED]
+    C -- Approve --> D{Agent active and no overlap?}
+    D -- No --> X[Approval fails; remain PENDING_APPROVAL]
+    D -- Yes --> F[Set CONFIRMED]

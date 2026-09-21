@@ -1,0 +1,10 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Cancel Reservation v0.2"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A [shape=box,label="Cancel request"]; B [shape=diamond,label="Reservation exists and\nactor authorized?"];
+  C [shape=diamond,label="Already CANCELLED?"]; D [shape=diamond,label="CONFIRMED or\nPENDING_APPROVAL?"];
+  E [shape=diamond,label="currentTime < startTime?"]; F [shape=box,label="Set CANCELLED"];
+  I [shape=box,label="Return CANCELLED"]; X [shape=box,label="Reject"];
+  A->B; B->X[label="No"]; B->C[label="Yes"]; C->I[label="Yes"]; C->D[label="No"];
+  D->X[label="No"]; D->E[label="Yes"]; E->X[label="No"]; E->F[label="Yes"]; F->I;
+}

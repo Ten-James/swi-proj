@@ -1,0 +1,10 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Approve / Reject Reservation v0.2"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A [shape=box,label="Admin opens\nPENDING_APPROVAL"]; B [shape=diamond,label="Expired?"];
+  C [shape=diamond,label="Decision"]; D [shape=diamond,label="Agent active and\nno overlap?"];
+  E [shape=box,label="Set EXPIRED"]; R [shape=box,label="Set REJECTED"];
+  X [shape=box,label="Approval fails;\nremain PENDING_APPROVAL"]; F [shape=box,label="Set CONFIRMED"];
+  A->B; B->E[label="Yes"]; B->C[label="No"]; C->R[label="Reject"]; C->D[label="Approve"];
+  D->X[label="No"]; D->F[label="Yes"];
+}

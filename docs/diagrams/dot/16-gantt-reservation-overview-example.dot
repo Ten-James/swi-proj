@@ -1,0 +1,10 @@
+
+digraph G {
+  graph [fontname="Arial", labelloc="t", label="Gantt overview example — see SVG/PNG for timeline rendering"];
+  node [shape=box, fontname="Arial"];
+  A [label="Agent A: Reservation 1, Reservation 2"];
+  B [label="Agent B: Reservation 3"];
+  C [label="Agent C: Reservation 4"];
+  A -> B [style=invis];
+  B -> C [style=invis];
+}

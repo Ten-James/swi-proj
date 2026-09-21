@@ -1,0 +1,10 @@
+digraph G {
+  graph [rankdir=LR, fontname="Arial", labelloc="t", label="Reservation lifecycle — Baseline v0.1"];
+  node [shape=ellipse, fontname="Arial"]; edge [fontname="Arial"];
+  s [shape=point, label=""];
+  e [shape=doublecircle, width=0.18, height=0.18, label=""];
+  C [label="CONFIRMED"]; X [label="CANCELLED"];
+  s -> C [label="create\n[all checks pass]"];
+  C -> X [label="cancel\n[currentTime < startTime]"];
+  X -> e;
+}

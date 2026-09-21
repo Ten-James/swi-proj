@@ -1,0 +1,8 @@
+flowchart TD
+    A[User otevře přehled rezervací]
+    A --> B[Systém načte všechny Reservation]
+    B --> C[Systém načte související AI Agenty]
+    C --> D[Seskupí Reservation podle Agenta]
+    D --> E[Seřadí intervaly podle času]
+    E --> F[Připraví startTime a endTime pro zobrazení]
+    F --> G[Zobrazí všechny Reservation jako Ganttův diagram]

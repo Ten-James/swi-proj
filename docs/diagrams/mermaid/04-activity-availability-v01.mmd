@@ -1,0 +1,8 @@
+flowchart TD
+    A[Availability request] --> B{Valid interval and Agent exists?}
+    B -- No --> X[Reject]
+    B -- Yes --> C{Agent active?}
+    C -- No --> U[UNAVAILABLE]
+    C -- Yes --> D{Overlaps CONFIRMED Reservation?}
+    D -- Yes --> U
+    D -- No --> V[AVAILABLE]

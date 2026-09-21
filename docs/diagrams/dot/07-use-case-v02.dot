@@ -1,0 +1,22 @@
+digraph G {
+  graph [rankdir=LR, fontname="Arial", labelloc="t", label="Rozšířený use-case diagram — Baseline v0.2"];
+  node [fontname="Arial"]; edge [fontname="Arial",dir=none];
+  User [shape=plaintext,label="User"]; Admin [shape=plaintext,label="Admin / Approver"];
+  subgraph cluster_rs {
+    label="Reservation System"; style=rounded;
+    UC1 [shape=ellipse,label="UC1 - Vyhledávání\nrezervací"];
+    UC2 [shape=ellipse,label="UC2 - Vytvoření\nrezervace"];
+    UC3 [shape=ellipse,label="UC3 - Zrušení\nrezervace"];
+    UC4 [shape=ellipse,label="UC4 - Editace\nrezervace"];
+    UC5 [shape=ellipse,label="UC5 - Admin správa\nagentů"];
+    UC6 [shape=ellipse,label="UC6 - Admin správa\nrezervací"];
+    UC7 [shape=ellipse,label="UC7 - Kontrola\ndostupnosti"];
+    UC8 [shape=ellipse,label="UC8 - Potvrzení\nrezervace"];
+    UC9 [shape=ellipse,label="UC9 - Schválení /\nzamítnutí rezervace"];
+  }
+  User->UC1; User->UC2; User->UC3; User->UC4; User->UC7;
+  Admin->UC5; Admin->UC6; Admin->UC9;
+  Admin->User [dir=forward,arrowhead=empty,label="is-a",style=dashed];
+  UC2->UC7 [dir=forward,arrowhead=open,style=dashed,label="<<include>>"];
+  UC2->UC8 [dir=forward,arrowhead=open,style=dashed,label="<<include>>"];
+}

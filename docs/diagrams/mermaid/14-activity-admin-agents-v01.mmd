@@ -1,0 +1,8 @@
+flowchart TD
+    A[Admin opens Agent management] --> B{Authorized Admin?}
+    B -- No --> X[Reject]
+    B -- Yes --> C{Action}
+    C -- Create --> D[Create Agent]
+    C -- Edit --> E[Update metadata]
+    C -- Activate --> F[Set active]
+    C -- Deactivate --> G[Set inactive]

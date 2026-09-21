@@ -1,0 +1,10 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Editace rezervace v0.1"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A[shape=box,label="Edit request"]; B[shape=diamond,label="Reservation exists,\nowned and future?"];
+  C[shape=diamond,label="State is CONFIRMED?"]; D[shape=diamond,label="New Agent/interval\npasses all checks?"];
+  E[shape=box,label="Update same Reservation"]; F[shape=box,label="Keep CONFIRMED"];
+  X[shape=box,label="Reject"];
+  A->B; B->X[label="No"]; B->C[label="Yes"]; C->X[label="No"]; C->D[label="Yes"];
+  D->X[label="No"]; D->E[label="Yes"]; E->F;
+}

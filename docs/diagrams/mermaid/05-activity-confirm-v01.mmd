@@ -1,0 +1,8 @@
+flowchart TD
+    A[Validated Create request] --> B{Agent active?}
+    B -- No --> X[Do not create]
+    B -- Yes --> C{No overlap?}
+    C -- No --> X
+    C -- Yes --> D{User limit satisfied?}
+    D -- No --> X
+    D -- Yes --> E[Commit as CONFIRMED]

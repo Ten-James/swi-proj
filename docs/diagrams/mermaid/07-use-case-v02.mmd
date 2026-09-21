@@ -1,0 +1,28 @@
+flowchart LR
+    U[User]
+    A[Admin / Approver]
+    A -. specializace .-> U
+
+    subgraph RS[Reservation System]
+        UC1([UC1 - Vyhledávání rezervací])
+        UC2([UC2 - Vytvoření rezervace])
+        UC3([UC3 - Zrušení rezervace])
+        UC4([UC4 - Editace rezervace])
+        UC5([UC5 - Admin správa agentů])
+        UC6([UC6 - Admin správa rezervací])
+        UC7([UC7 - Kontrola dostupnosti])
+        UC8([UC8 - Potvrzení rezervace])
+        UC9([UC9 - Schválení / zamítnutí rezervace])
+    end
+
+    U --- UC1
+    U --- UC2
+    U --- UC3
+    U --- UC4
+    U --- UC7
+    A --- UC5
+    A --- UC6
+    A --- UC9
+
+    UC2 -. include .-> UC7
+    UC2 -. include .-> UC8

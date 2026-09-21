@@ -1,0 +1,10 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Confirmation decision v0.2"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A [shape=box,label="Validated Create request"]; B [shape=diamond,label="Approval required?"];
+  C [shape=diamond,label="Confirmation checks pass?"]; D [shape=box,label="Create CONFIRMED"];
+  E [shape=diamond,label="Initial validation passes?"]; F [shape=box,label="Create PENDING_APPROVAL"];
+  X [shape=box,label="Do not create"];
+  A->B; B->C[label="No"]; C->X[label="No"]; C->D[label="Yes"];
+  B->E[label="Yes"]; E->X[label="No"]; E->F[label="Yes"];
+}
