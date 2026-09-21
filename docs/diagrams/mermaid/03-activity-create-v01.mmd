@@ -1,0 +1,11 @@
+flowchart TD
+    A[Create request] --> B{Input and interval valid?}
+    B -- No --> X[Reject - create nothing]
+    B -- Yes --> C{Agent exists and active?}
+    C -- No --> X
+    C -- Yes --> D{Overlap with CONFIRMED?}
+    D -- Yes --> X
+    D -- No --> E{User below active reservation limit?}
+    E -- No --> X
+    E -- Yes --> F[Create CONFIRMED Reservation]
+    F --> G[Return reservation ID and state]

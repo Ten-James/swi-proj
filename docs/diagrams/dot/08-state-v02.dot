@@ -1,0 +1,15 @@
+digraph G {
+  graph [rankdir=LR,fontname="Arial",labelloc="t",label="Reservation lifecycle — Baseline v0.2"];
+  node [shape=ellipse,fontname="Arial"]; edge [fontname="Arial"];
+  s [shape=point,label=""];
+  c [label="CONFIRMED"]; p [label="PENDING_APPROVAL"]; x [label="CANCELLED"];
+  r [label="REJECTED"]; e [label="EXPIRED"];
+  e1 [shape=doublecircle,width=0.18,height=0.18,label=""];
+  e2 [shape=doublecircle,width=0.18,height=0.18,label=""];
+  e3 [shape=doublecircle,width=0.18,height=0.18,label=""];
+  s->c [label="create\n[approval not required,\nchecks pass]"];
+  s->p [label="create\n[approval required,\nchecks pass]"];
+  p->c [label="approve"]; p->r [label="reject"]; p->e [label="approval deadline reached"];
+  p->x [label="cancel\n[before start]"]; c->x [label="cancel\n[before start]"];
+  x->e1; r->e2; e->e3;
+}

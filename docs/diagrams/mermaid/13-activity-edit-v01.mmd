@@ -1,0 +1,9 @@
+flowchart TD
+    A[Edit request] --> B{Reservation exists, owned and future?}
+    B -- No --> X[Reject]
+    B -- Yes --> C{State is CONFIRMED?}
+    C -- No --> X
+    C -- Yes --> D{New Agent/interval passes all checks?}
+    D -- No --> X
+    D -- Yes --> E[Update same Reservation]
+    E --> F[Keep CONFIRMED]

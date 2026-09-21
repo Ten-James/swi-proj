@@ -1,0 +1,9 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Admin správa agentů v0.1"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A[shape=box,label="Admin opens Agent management"]; B[shape=diamond,label="Authorized Admin?"];
+  C[shape=diamond,label="Action"]; D[shape=box,label="Create Agent"]; E[shape=box,label="Update metadata"];
+  F[shape=box,label="Set active"]; G[shape=box,label="Set inactive"]; X[shape=box,label="Reject"];
+  A->B; B->X[label="No"]; B->C[label="Yes"]; C->D[label="Create"]; C->E[label="Edit"];
+  C->F[label="Activate"]; C->G[label="Deactivate"];
+}

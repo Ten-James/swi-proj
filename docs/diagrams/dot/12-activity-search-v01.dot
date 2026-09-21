@@ -1,0 +1,13 @@
+
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Vyhledávání / Gantt přehled rezervací v0.1"];
+  node [fontname="Arial",shape=box];
+  A[label="User otevře přehled rezervací"];
+  B[label="Systém načte všechny Reservation"];
+  C[label="Systém načte související AI Agenty"];
+  D[label="Seskupí Reservation podle Agenta"];
+  E[label="Seřadí intervaly podle času"];
+  F[label="Připraví startTime a endTime\npro zobrazení"];
+  G[label="Zobrazí všechny Reservation\njako Ganttův diagram"];
+  A->B->C->D->E->F->G;
+}

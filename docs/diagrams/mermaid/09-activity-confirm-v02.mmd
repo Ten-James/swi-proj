@@ -1,0 +1,8 @@
+flowchart TD
+    A[Validated Create request] --> B{Approval required?}
+    B -- No --> C{Confirmation checks pass?}
+    C -- No --> X[Do not create]
+    C -- Yes --> D[Create CONFIRMED]
+    B -- Yes --> E{Initial validation passes?}
+    E -- No --> X
+    E -- Yes --> F[Create PENDING_APPROVAL]

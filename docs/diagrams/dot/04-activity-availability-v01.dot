@@ -1,0 +1,9 @@
+digraph G {
+  graph [rankdir=TB, fontname="Arial", labelloc="t", label="Activity — Check Availability v0.1"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A [shape=box,label="Availability request"]; B [shape=diamond,label="Valid interval\nand Agent exists?"];
+  C [shape=diamond,label="Agent active?"]; D [shape=diamond,label="Overlaps CONFIRMED\nReservation?"];
+  X [shape=box,label="Reject"]; U [shape=box,label="UNAVAILABLE"]; V [shape=box,label="AVAILABLE"];
+  A->B; B->X[label="No"]; B->C[label="Yes"]; C->U[label="No"]; C->D[label="Yes"];
+  D->U[label="Yes"]; D->V[label="No"];
+}

@@ -1,0 +1,4 @@
+stateDiagram-v2
+    [*] --> CONFIRMED : create [all checks pass]
+    CONFIRMED --> CANCELLED : cancel [currentTime < startTime]
+    CANCELLED --> [*]

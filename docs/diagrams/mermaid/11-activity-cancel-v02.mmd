@@ -1,0 +1,11 @@
+flowchart TD
+    A[Cancel request] --> B{Reservation exists and actor authorized?}
+    B -- No --> X[Reject]
+    B -- Yes --> C{Already CANCELLED?}
+    C -- Yes --> I[Return CANCELLED]
+    C -- No --> D{CONFIRMED or PENDING_APPROVAL?}
+    D -- No --> X
+    D -- Yes --> E{currentTime < startTime?}
+    E -- No --> X
+    E -- Yes --> F[Set CANCELLED]
+    F --> I

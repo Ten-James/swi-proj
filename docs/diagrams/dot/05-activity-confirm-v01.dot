@@ -1,0 +1,9 @@
+digraph G {
+  graph [rankdir=TB, fontname="Arial", labelloc="t", label="Activity — Confirm decision inside Create v0.1"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A [shape=box,label="Validated Create request"]; B [shape=diamond,label="Agent active?"];
+  C [shape=diamond,label="No overlap?"]; D [shape=diamond,label="User limit satisfied?"];
+  X [shape=box,label="Do not create"]; E [shape=box,label="Commit as CONFIRMED"];
+  A->B; B->X[label="No"]; B->C[label="Yes"]; C->X[label="No"]; C->D[label="Yes"];
+  D->X[label="No"]; D->E[label="Yes"];
+}
