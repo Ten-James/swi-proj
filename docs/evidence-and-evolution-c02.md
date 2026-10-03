@@ -18,7 +18,7 @@ TBD after execution.
 
 Known modeling decision already resolved:
 the accepted specification uses immediate validation and direct creation as `CONFIRMED`;
-no persisted intermediate state is part of the system model.
+confirmation is not a separate User action in baseline v0.1.
 
 Remaining mismatches: TBD after verification.
 
@@ -31,14 +31,14 @@ Availability is rechecked when approval occurs.
 
 ## Remaining assumption / unknown
 
-Exact approval-expiration configuration is TBD.
+No unresolved behavior remains in the accepted v0.2 model.
+Approval expires when `currentTime >= Reservation.startTime`.
 
 ## Architectural drivers transferred to C03
 
 - concurrent Create / Approve consistency;
 - persistent asynchronous approval;
-- time-dependent expiration;
-- Notification Service failure must not corrupt reservation consistency.
+- time-dependent expiration at `Reservation.startTime`.
 
 ## Application commit / tag
 

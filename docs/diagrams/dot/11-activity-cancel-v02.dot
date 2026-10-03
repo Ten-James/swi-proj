@@ -2,9 +2,14 @@ digraph G {
   graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Cancel Reservation v0.2"];
   node [fontname="Arial"]; edge [fontname="Arial"];
   A [shape=box,label="Cancel request"]; B [shape=diamond,label="Reservation exists and\nactor authorized?"];
-  C [shape=diamond,label="Already CANCELLED?"]; D [shape=diamond,label="CONFIRMED or\nPENDING_APPROVAL?"];
-  E [shape=diamond,label="currentTime < startTime?"]; F [shape=box,label="Set CANCELLED"];
-  I [shape=box,label="Return CANCELLED"]; X [shape=box,label="Reject"];
-  A->B; B->X[label="No"]; B->C[label="Yes"]; C->I[label="Yes"]; C->D[label="No"];
-  D->X[label="No"]; D->E[label="Yes"]; E->X[label="No"]; E->F[label="Yes"]; F->I;
+  C [shape=diamond,label="Already CANCELLED?"]; D [shape=diamond,label="Current state?"];
+  E [shape=diamond,label="currentTime < startTime?"]; P [shape=diamond,label="currentTime < startTime?"];
+  F1 [shape=box,label="Set CANCELLED"]; F2 [shape=box,label="Set CANCELLED"]; H [shape=box,label="Set EXPIRED"];
+  I1 [shape=box,label="Return CANCELLED"]; I2 [shape=box,label="Return CANCELLED"];
+  I3 [shape=box,label="Return CANCELLED"]; J [shape=box,label="Return EXPIRED"];
+  X1 [shape=box,label="Reject"]; X2 [shape=box,label="Reject"]; X3 [shape=box,label="Reject"];
+  A->B; B->X1[label="No"]; B->C[label="Yes"]; C->I1[label="Yes"]; C->D[label="No"];
+  D->X2[label="Other"]; D->E[label="CONFIRMED"]; E->X3[label="No"]; E->F1[label="Yes"];
+  D->P[label="PENDING_APPROVAL"]; P->F2[label="Yes"]; P->H[label="No"];
+  F1->I2; F2->I3; H->J;
 }

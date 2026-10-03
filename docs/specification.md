@@ -1,11 +1,12 @@
 # Reservation System — Specification
 
-> **Accepted modeling decision:** The system does not persist an intermediate draft state.
-> A create request is validated immediately. If all rules pass, the Reservation is stored
+> **Accepted modeling decision:** A create request is validated immediately.
+> If all rules pass, the Reservation is stored
 > directly as `CONFIRMED`. If validation fails, no Reservation is created.
 >
-> In baseline v0.1, **Confirm Reservation is therefore a logical confirmation step performed
-> atomically inside Create Reservation**, not a separate persisted state transition.
+> In baseline v0.1, **Confirm Reservation is the system's atomic commit decision
+> inside Create Reservation**, not a separate User action or a transition from a stored
+> pre-confirmation state.
 > This decision is used consistently throughout the specification and diagrams.
 
 # Specification Baseline v0.1
@@ -237,11 +238,17 @@ Existing `CONFIRMED`: `[10:00,11:00)`
 
 ## Goal / user value
 
-The system accepts a Reservation as a committed allocation of the Agent.
+The system atomically accepts a valid Create request as a committed allocation
+of the Agent, without asking the User or an Admin for another action.
+
+## Trigger
+
+OP-01 reaches its final commit decision after all Create input has been validated.
 
 ## Accepted baseline semantics
 
-Baseline v0.1 does not expose a separate persisted pre-confirmation state.
+Baseline v0.1 does not expose a separate confirmation action or a persisted
+pre-confirmation state.
 
 Confirmation is performed **inside the Create Reservation transaction**.
 A create request either:
@@ -249,8 +256,16 @@ A create request either:
 - passes all confirmation checks and is stored as `CONFIRMED`; or
 - fails and creates no Reservation.
 
-Therefore OP-03 is an explicit business operation / decision, but not a separate
-user-visible state transition in v0.1.
+Therefore OP-03 is an explicit system decision required by the assignment, but not
+a separate User goal, API call, use case or transition from another persisted state
+in v0.1.
+
+## Preconditions
+
+- the Create request identifies an existing active Agent;
+- `startTime < endTime`;
+- the interval does not overlap another `CONFIRMED` Reservation of the Agent;
+- the User remains within the active Reservation limit.
 
 ## Observable requirements
 
@@ -265,6 +280,22 @@ A Reservation may become committed only when:
 **REQ-07:**  
 For concurrent conflicting create/confirm attempts, at most one Reservation
 may be committed as `CONFIRMED`.
+
+## State change
+
+`[none] → CONFIRMED` as the final atomic step of OP-01.
+
+No separate confirmation state or second User request exists.
+
+## Referenced rules
+
+BR-01, BR-02, BR-04, BR-05.
+
+## Main success scenario
+
+1. OP-01 validates the request and domain rules.
+2. The system atomically persists one Reservation as `CONFIRMED`.
+3. The same OP-01 response returns its identifier and state.
 
 ## Success postcondition
 
@@ -424,86 +455,73 @@ Date:
 
 ## Changed condition
 
-Some AI Agents require approval by an authorized Admin before the Reservation
-can become `CONFIRMED`.
+Some AI Agents require a decision by an authorized Admin before a Reservation
+can become `CONFIRMED`. Agent therefore gains the property `requiresApproval`.
 
-Agent has a property:
+## Accepted expiration policy
 
-`requiresApproval`
+Approval is possible only before the reserved interval begins. For a
+`PENDING_APPROVAL` Reservation:
+
+- `currentTime < startTime` → Admin may approve or reject;
+- `currentTime >= startTime` → the Reservation is `EXPIRED` and cannot be approved.
+
+The reservation application's system clock is the source of `currentTime`.
+The transition to `EXPIRED` must be applied no later than the next read or decision
+concerning that Reservation. This avoids inventing an arbitrary approval timeout.
 
 ## Impact analysis before implementation
 
-### Create
+| Area | Accepted impact in baseline v0.2 |
+|---|---|
+| Create | The same rules are checked immediately. A valid request becomes `CONFIRMED` when approval is not required, otherwise `PENDING_APPROVAL`. |
+| Availability | Only `CONFIRMED` blocks the Agent. `PENDING_APPROVAL` is visible but does not block availability. |
+| Confirm | For an Agent without approval it remains the atomic commit inside Create. For an approval-required Agent it occurs only through successful OP-05. |
+| Approve / Reject | New Admin goal and operation OP-05. Availability and Agent activity are checked again at approval time. |
+| Cancel | A future `PENDING_APPROVAL` Reservation may be cancelled under the same time boundary as `CONFIRMED`. |
+| Agent administration | UC5 gains the ability to set `requiresApproval`. |
+| State model | Adds `PENDING_APPROVAL`, `REJECTED` and `EXPIRED`. |
+| User limit | `PENDING_APPROVAL` and future `CONFIRMED` Reservations count toward the limit. |
 
-The system still validates the request immediately.
+## Explicitly unaffected parts
 
-If `requiresApproval = false`:
-- successful Create stores the Reservation directly as `CONFIRMED`.
+- BR-01 interval semantics remain `[startTime,endTime)` because approval does not
+  change the reserved interval.
+- BR-02 remains unchanged: only `CONFIRMED` Reservations are committed allocations.
+- UC1 remains a read-only Gantt overview of all Reservations.
+- UC4 continues to edit future `CONFIRMED` Reservations only; editing an approval
+  request is not introduced by this change.
+- UC6 remains the general administrative overview; the decision itself is UC8 / OP-05.
+- For `requiresApproval = false`, the complete v0.1 Create behavior is unchanged.
 
-If `requiresApproval = true`:
-- successful Create stores the Reservation as `PENDING_APPROVAL`.
+## Baseline v0.2 deltas for existing operations
 
-There is still no separate intermediate draft state.
+### OP-01 — Create Reservation
 
-### Availability
+- common validation: valid interval, existing active Agent, no current overlap and
+  User below the active Reservation limit;
+- `requiresApproval = false` → `[none] → CONFIRMED`;
+- `requiresApproval = true` → `[none] → PENDING_APPROVAL`;
+- failure of any common validation rule → no Reservation is created.
 
-`PENDING_APPROVAL` does not block the Agent.
+### OP-02 — Check Availability
 
-Only `CONFIRMED` Reservations block availability.
+`PENDING_APPROVAL` does not block availability. Only an overlapping `CONFIRMED`
+Reservation makes the Agent unavailable. The result remains a snapshot and may
+change before a later approval decision.
 
-### Confirm
+### OP-03 — Confirm Reservation
 
-For Agents not requiring approval, confirmation remains an atomic part of Create.
+- without approval: `[none] → CONFIRMED` inside successful Create;
+- with approval: `PENDING_APPROVAL → CONFIRMED` only through OP-05.
 
-For Agents requiring approval, final confirmation occurs when the authorized
-Admin approves the `PENDING_APPROVAL` Reservation.
+No separate confirmation request by the User is introduced.
 
-### Approve
+### OP-04 — Cancel Reservation
 
-A new operation and actor responsibility appears:
-Admin acts as the authorized Approver.
-
-### Cancel
-
-A `PENDING_APPROVAL` Reservation may also be cancelled before its start time.
-
-### State model
-
-New states are introduced:
-
-- `PENDING_APPROVAL`
-- `REJECTED`
-- `EXPIRED`
-
-## Expiration
-
-A `PENDING_APPROVAL` Reservation has `approvalExpiresAt`.
-
-When the approval deadline is reached, it may no longer be approved
-and transitions to `EXPIRED`.
-
-The exact duration / configuration of the approval deadline is **TBD**
-until the team explicitly decides it.
-
----
-
-# OP-03 — Confirm Reservation — baseline v0.2
-
-## Agent does not require approval
-
-`[none] → CONFIRMED`
-
-Confirmation is still performed as part of successful Create.
-
-## Agent requires approval
-
-Create produces:
-
-`[none] → PENDING_APPROVAL`
-
-Final confirmation occurs only after successful approval:
-
-`PENDING_APPROVAL → CONFIRMED`
+REQ-08 is extended to allow cancellation of `CONFIRMED` or `PENDING_APPROVAL`
+when `currentTime < startTime`. Both transition to `CANCELLED` and no longer affect
+availability or the active Reservation limit.
 
 ---
 
@@ -511,54 +529,100 @@ Final confirmation occurs only after successful approval:
 
 ## Goal / user value
 
-An authorized Admin decides a Reservation waiting for approval.
+An authorized Admin decides a Reservation waiting for approval so it is either
+committed, rejected, or recognized as expired.
 
 ## Trigger
 
-Admin requests approval or rejection of a `PENDING_APPROVAL` Reservation.
+An authorized Admin requests approval or rejection of a `PENDING_APPROVAL`
+Reservation.
 
 ## Observable requirements
 
-**REQ-09:**  
-A `PENDING_APPROVAL` Reservation may become `CONFIRMED` only if:
+**REQ-09:**
+The system shall approve a `PENDING_APPROVAL` Reservation only when
+`currentTime < startTime`, the Agent is active, and its interval does not overlap
+another `CONFIRMED` Reservation of the same Agent.
 
-- the approval has not expired;
-- Agent is active;
-- interval does not overlap a `CONFIRMED` Reservation of the same Agent.
+**REQ-10:**
+For concurrent Create or Approve operations that conflict under BR-02, at most
+one Reservation shall reach `CONFIRMED`.
 
-**REQ-10:**  
-Two concurrent approvals / creates that conflict under BR-02 must not both
-end as `CONFIRMED`.
+**REQ-11:**
+An authorized Admin may reject a non-expired `PENDING_APPROVAL` Reservation;
+the Reservation shall become `REJECTED`.
+
+**REQ-12:**
+At `currentTime >= startTime`, a `PENDING_APPROVAL` Reservation shall be treated
+as `EXPIRED`, shall not be approved, and the state shall be persisted no later than
+its next read or decision.
 
 ## Preconditions
 
-- Reservation exists.
-- `Reservation.state = PENDING_APPROVAL`.
-- actor is an authorized Admin / Approver.
+- Reservation exists;
+- actor is an authorized Admin / Approver;
+- Reservation is `PENDING_APPROVAL` when the decision begins.
 
-## Successful approval
+## Success postcondition — approval
 
-`PENDING_APPROVAL → CONFIRMED`
+- `Reservation.state = CONFIRMED`;
+- the Reservation blocks its Agent for its interval;
+- BR-02 remains true.
 
-## Rejection
+## Success postcondition — rejection
 
-`PENDING_APPROVAL → REJECTED`
+- `Reservation.state = REJECTED`;
+- the Reservation does not block its Agent and does not count toward BR-04.
 
-## Expiration
+## State changes
 
-`PENDING_APPROVAL → EXPIRED`
+- approval: `PENDING_APPROVAL → CONFIRMED`;
+- rejection: `PENDING_APPROVAL → REJECTED`;
+- expiration: `PENDING_APPROVAL → EXPIRED`.
 
-when:
+## Referenced rules
 
-`currentTime >= approvalExpiresAt`
+BR-01, BR-02, BR-03, BR-04 and BR-05.
+
+## Main success scenario — approval
+
+1. Admin requests approval of a `PENDING_APPROVAL` Reservation.
+2. System verifies the Admin's authorization.
+3. System reads `currentTime` once and verifies `currentTime < startTime`.
+4. System verifies that the Agent is active.
+5. System rechecks overlap with `CONFIRMED` Reservations.
+6. System atomically changes the Reservation to `CONFIRMED`.
+7. System returns the Reservation identifier and current state.
+
+## Alternative / failure outcomes
+
+- unauthorized actor → reject; state unchanged;
+- unknown Reservation → reject;
+- invalid source state → reject; state unchanged;
+- Admin rejects before expiration → `REJECTED`;
+- `currentTime >= startTime` → `EXPIRED`; approval rejected;
+- inactive Agent → approval rejected; remains `PENDING_APPROVAL` until rejected,
+  cancelled, or expired;
+- overlap appeared while waiting → approval rejected; remains `PENDING_APPROVAL`;
+- concurrent conflict → at most one conflicting Reservation becomes `CONFIRMED`.
 
 ## Verification examples
 
-- pending + active Agent + no overlap + before expiry → `CONFIRMED`;
-- pending + overlap created while waiting → approval rejected;
-- Admin rejects → `REJECTED`;
-- deadline passed → `EXPIRED`;
+- pending + active Agent + no overlap + before start → `CONFIRMED`;
+- pending + overlap created while waiting → approval rejected, remains pending;
+- authorized Admin rejects before start → `REJECTED`;
+- `currentTime == startTime` → `EXPIRED`, approval rejected;
+- unauthorized User attempts approval → rejected, state unchanged;
 - two conflicting approval/creation attempts → at most one `CONFIRMED`.
+
+## Rationale
+
+Approval is separate from Confirm because it is an explicit Admin decision that may
+happen later. Domain consistency is still enforced by the system at decision time.
+
+## Assumptions / unknowns
+
+None for baseline v0.2. The accepted expiration boundary is `startTime`.
 
 ---
 
@@ -566,10 +630,40 @@ when:
 
 Active Reservations are:
 
-- `PENDING_APPROVAL`
-- `CONFIRMED`
+- `PENDING_APPROVAL`;
+- future `CONFIRMED` Reservations whose `endTime` has not passed.
 
 `CANCELLED`, `REJECTED` and `EXPIRED` do not count toward the limit.
+
+---
+
+# Requirement acceptance review — baseline v0.2
+
+## REQ-09 / REQ-10 — approval and concurrency
+
+- Meaning: approval commits the allocation only after the same availability and
+  Agent checks used by Create.
+- Need: the decision can be delayed, so conditions may change while waiting.
+- Observable result: approval returns `CONFIRMED`, or returns a defined failure
+  without violating BR-02.
+- Feasibility: consistent with BR-01, BR-02, BR-04 and BR-05.
+- Verification: success, appeared-overlap and concurrent-conflict examples.
+- State/time: source state must be `PENDING_APPROVAL` and the decision must occur
+  before `startTime`.
+- Concurrency: at most one conflicting allocation becomes `CONFIRMED`.
+- Uncertainty: none.
+
+## REQ-11 / REQ-12 — rejection and expiration
+
+- Meaning: rejection is an Admin decision; expiration is a time-derived system result.
+- Need: waiting requests must have terminal outcomes even when not approved.
+- Observable result: `REJECTED` before the boundary or `EXPIRED` at/after it.
+- Feasibility: both terminal states release the User limit and never block availability.
+- Verification: rejection before start and approval attempt exactly at `startTime`.
+- State/time: the application system clock is read once per decision.
+- Concurrency: the decision must atomically win against Cancel or another decision;
+  exactly one terminal result is persisted.
+- Uncertainty: none.
 
 ---
 
@@ -586,9 +680,5 @@ Concurrent Create and Approve operations must not produce overlapping
 
 ## 3. Time-dependent expiration
 
-The system needs a consistent interpretation of `approvalExpiresAt`.
-
-## 4. External Notification Service boundary
-
-Notification delivery must not be required for persistence consistency.
-A Notification Service outage must not create or corrupt Reservation state.
+The system must consistently apply the `currentTime >= startTime` boundary and
+persist `EXPIRED` no later than the next read or decision.

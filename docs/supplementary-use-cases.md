@@ -14,6 +14,7 @@ vytížení jednotlivých AI Agentů v čase.
 - Každý AI Agent má v diagramu vlastní řádek / osu.
 - Horizontální osa představuje čas.
 - Každá Reservation je zobrazena jako interval `startTime → endTime`.
+- Gantt zobrazuje Agent, interval a stav Reservation, nikoli identitu vlastníka.
 - Operace je read-only a nemění stav žádné Reservation.
 
 ## Result
@@ -32,10 +33,10 @@ seskupí je podle Agenta a času a UI je zobrazí jako Ganttův diagram.
 - systém nemá žádné Reservation
   → zobrazí se prázdný Ganttův přehled bez chyby.
 
-## TBD
+## Accepted visibility
 
-Není zatím rozhodnuto, které konkrétní údaje o Userovi / vlastníkovi
-Reservation se mají v Ganttově přehledu zobrazovat.
+Běžný User vidí časové obsazení všech Agentů, ale ne identitu vlastníků.
+Oprávnění upravovat nebo rušit cizí Reservation z globálního přehledu nevzniká.
 
 ---
 
@@ -97,6 +98,8 @@ Admin may:
 - activate Agent;
 - deactivate Agent.
 
+In baseline v0.2, Admin may also set `requiresApproval` for an Agent.
+
 An inactive Agent cannot receive a new `CONFIRMED` Reservation.
 
 Historical Reservations are preserved.
@@ -123,12 +126,13 @@ Admin has an administrative view over all Reservations.
 ## Verification examples
 
 - Admin can see Reservations of multiple Users.
-- ordinary User can see only their own.
+- ordinary User can see the global read-only Gantt overview, but cannot use
+  administrative operations on another User's Reservation.
 - Admin operation cannot produce overlapping `CONFIRMED` Reservations.
 
 ---
 
-# UC9 — Schválení / zamítnutí rezervace (v0.2)
+# UC8 — Schválení / zamítnutí rezervace (v0.2)
 
 Engineering details are specified in `specification.md` as OP-05.
 

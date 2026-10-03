@@ -9,7 +9,7 @@ Systém slouží uživatelům (např. vývojářům, analytikům), kteří potř
 ## Uživatelé / Zainteresované strany
 - **Uživatel (User)** – vyhledává dostupné AI agenty, vytváří, upravuje a ruší vlastní rezervace výpočetního času.
 - **Administrátor** – přidává a spravuje AI agenty (jejich dostupnost, kapacitu, deaktivaci), spravuje uživatele a globální nastavení (např. hodnotu limitu max rezervací).
-- **Schvalovatel (Approver)** *(volitelná role, může splývat s administrátorem)* – potvrzuje nebo zamítá rezervace u agentů vyžadujících schválení.
+- **Schvalovatel (Approver)** *(až ve změně v0.2, může splývat s administrátorem)* – schvaluje nebo zamítá rezervace u agentů, které schválení vyžadují.
 
 ## Klíčové pojmy
 - **Reservation (rezervace)** – požadavek konkrétního uživatele na exkluzivní využití výpočetního času konkrétního AI agenta v daném časovém intervalu.
@@ -19,29 +19,27 @@ Systém slouží uživatelům (např. vývojářům, analytikům), kteří potř
 
 ## Klíčové operace
 - Vytvořit rezervaci
-- Potvrdit / schválit rezervaci
+- Potvrdit rezervaci automaticky při úspěšném vytvoření
+- Schválit / zamítnout rezervaci u agentů vyžadujících schválení (změna v0.2)
 - Zrušit rezervaci
 - Zkontrolovat dostupnost
 
 ## Perzistentní stav
-**Reservation**: id, user_id, agent_id (resource_id), start_time, end_time, status (DRAFT / CONFIRMED / CANCELLED / REJECTED), created_at, updated_at, účel/poznámka (volitelné).
+**Reservation**: id, user_id, agent_id (resource_id), start_time, end_time, status (v0.1: CONFIRMED / CANCELLED; v0.2 navíc PENDING_APPROVAL / REJECTED / EXPIRED), created_at, updated_at, účel/poznámka (volitelné).
 
 **Resource (AI Agent)**: id, název, popis/typ agenta, výpočetní kapacita, availability window, stav (aktivní/neaktivní), owner/admin_id, vytvořen_at.
 
 ## Operace měnící stav
-`DRAFT → CONFIRMED`: uživatel vytvoří rezervaci výpočetního času agenta ve stavu DRAFT, systém (nebo schvalovatel) ji následně potvrdí a stav se změní na CONFIRMED. Z DRAFT nebo CONFIRMED lze také přejít do CANCELLED (zrušení uživatelem) nebo REJECTED (zamítnutí, např. pro kolizi nebo nedostupnost agenta).
+V baseline v0.1 systém při Create ihned ověří všechna pravidla. Úspěšný požadavek uloží rovnou jako `CONFIRMED`; neúspěšný požadavek neuloží vůbec. Budoucí `CONFIRMED` rezervace může přejít do `CANCELLED`. Změna v0.2 přidává pro vybrané agenty přechody `PENDING_APPROVAL → CONFIRMED / REJECTED / EXPIRED / CANCELLED`.
 
 ## Obecné byznys pravidlo
 Potvrzené rezervace (CONFIRMED) stejného zdroje (agenta) se nesmí časově překrývat.
 
 ## Doménově specifické pravidlo
-Jeden uživatel může mít současně maximálně N aktivních rezervací (stav DRAFT nebo CONFIRMED) napříč všemi AI agenty; N je konfigurovatelná hodnota nastavená administrátorem. Pokus o vytvoření další rezervace nad tento limit je systémem odmítnut, dokud uživatel některou ze svých rezervací nezruší nebo dokud nějaká neskončí.
-
-## Externí závislost / hranice systému
-**Notification Service** – externí služba/API pro odesílání notifikací (e-mail) uživateli při vytvoření, potvrzení, zamítnutí nebo zrušení rezervace výpočetního času agenta. Systém na ní závisí pouze pro doručení notifikací, doménová logika rezervací na ní není závislá (výpadek notifikační služby nesmí zablokovat vytvoření/potvrzení rezervace).
+Jeden uživatel může mít současně maximálně N aktivních budoucích rezervací ve stavu `CONFIRMED` napříč všemi AI agenty; N je konfigurovatelná hodnota nastavená administrátorem. Ve v0.2 se do limitu započítává také `PENDING_APPROVAL`. Pokus o vytvoření další rezervace nad tento limit je systémem odmítnut, dokud uživatel některou ze svých rezervací nezruší nebo dokud nějaká neskončí.
 
 ## Předpoklad
 Předpokládáme, že limit max rezervací (N) je stejný pro všechny uživatele a nastavuje se globálně administrátorem, nikoli individuálně per uživatel nebo per agent — toto ale zatím nebylo s byznysem ověřeno.
 
-## Neznámá
-Není jasné, zda rezervace výpočetního času vyžaduje explicitní schválení administrátorem/schvalovatelem, nebo zda se po vytvoření (splnění limitu a neexistenci kolize) potvrzuje automaticky bez lidského zásahu.
+## Přijaté rozhodnutí pro baseline v0.1
+Rezervace se po splnění limitu, ověření intervalu, aktivity agenta a neexistence kolize potvrdí automaticky bez lidského zásahu. Ruční schválení se objevuje až jako povinně analyzovaná změna v0.2 a pouze pro agenty, kteří jej vyžadují.

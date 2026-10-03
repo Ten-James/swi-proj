@@ -4,7 +4,7 @@ stateDiagram-v2
 
     PENDING_APPROVAL --> CONFIRMED : approve
     PENDING_APPROVAL --> REJECTED : reject
-    PENDING_APPROVAL --> EXPIRED : approval deadline reached
+    PENDING_APPROVAL --> EXPIRED : currentTime >= startTime
     PENDING_APPROVAL --> CANCELLED : cancel [before start]
 
     CONFIRMED --> CANCELLED : cancel [before start]

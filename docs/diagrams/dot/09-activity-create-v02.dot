@@ -1,0 +1,10 @@
+digraph G {
+  graph [rankdir=TB,fontname="Arial",labelloc="t",label="Activity — Create Reservation v0.2"];
+  node [fontname="Arial"]; edge [fontname="Arial"];
+  A [shape=box,label="Create request"]; B [shape=diamond,label="Common validation passes?"];
+  C [shape=diamond,label="Approval required?"]; D [shape=box,label="Create CONFIRMED"];
+  F [shape=box,label="Create PENDING_APPROVAL"];
+  X [shape=box,label="Do not create"];
+  A->B; B->X[label="No"]; B->C[label="Yes"];
+  C->D[label="No"]; C->F[label="Yes"];
+}

@@ -18,14 +18,14 @@ If any step fails, no Reservation is created.
 
 The assignment requires the business meaning of Confirm Reservation to be explicit.
 
-In this project, Confirm is not represented by a separate stored transition in v0.1.
-It is the commit decision inside Create.
+In this project, Confirm is not represented by a User action, separate use case,
+API call or stored transition in v0.1. It is the system's commit decision inside Create.
 
 This must be explained consistently in:
 - textual specification;
-- use-case model;
+- use-case model (mapped into UC2, not drawn as another User goal);
 - state diagram;
-- activity diagram;
+- Create activity diagram;
 - verification examples.
 
 ## Baseline v0.2
@@ -33,6 +33,10 @@ This must be explained consistently in:
 When approval is required, the persisted waiting state is `PENDING_APPROVAL`.
 
 No other intermediate reservation state is introduced.
+
+Approval is an explicit Admin decision. It is available only while
+`currentTime < startTime`; at or after `startTime` the waiting Reservation is
+`EXPIRED`. Only `CONFIRMED` Reservations block availability.
 
 ## Cancel semantics
 
@@ -50,4 +54,5 @@ The UI presents them as a Gantt chart grouped by AI Agent.
 This is a read-only overview and does not grant the User permission
 to modify Reservations belonging to another User.
 
-The exact owner/User details displayed in the chart remain TBD.
+The chart shows Agent, interval and Reservation state. It deliberately omits
+the owner's identity from the normal User view.

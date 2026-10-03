@@ -116,26 +116,5 @@
 <title>Admin&#45;&gt;UC6</title>
 <path fill="none" stroke="black" d="M56.13,-107.83C96.67,-97.13 174.37,-76.6 231.53,-61.5"/>
 </g>
-<!-- UC2&#45;&gt;UC7 -->
-<g id="edge9" class="edge">
-<title>UC2&#45;&gt;UC7</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M357.65,-278.62C371.56,-283.82 386.46,-289.51 400.16,-295 445.84,-313.31 497.06,-335.4 534.93,-352.03"/>
-<polygon fill="black" stroke="black" points="544.26,-356.14 533.29,-356.23 539.68,-354.12 535.11,-352.11 535.11,-352.11 535.11,-352.11 539.68,-354.12 536.92,-347.99 544.26,-356.14 544.26,-356.14"/>
-<text text-anchor="middle" x="456.16" y="-335.8" font-family="Arial" font-size="14.00">&lt;&lt;include&gt;&gt;</text>
-</g>
-<!-- UC8 -->
-<g id="node10" class="node">
-<title>UC8</title>
-<ellipse fill="none" stroke="black" cx="592.06" cy="-259" rx="79.81" ry="26.74"/>
-<text text-anchor="middle" x="592.06" y="-262.8" font-family="Arial" font-size="14.00">UC8 &#45; Potvrzení</text>
-<text text-anchor="middle" x="592.06" y="-247.8" font-family="Arial" font-size="14.00">rezervace</text>
-</g>
-<!-- UC2&#45;&gt;UC8 -->
-<g id="edge10" class="edge">
-<title>UC2&#45;&gt;UC8</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M382.52,-259C419.44,-259 463.59,-259 501.73,-259"/>
-<polygon fill="black" stroke="black" points="511.81,-259 501.81,-263.5 506.81,-259 501.81,-259 501.81,-259 501.81,-259 506.81,-259 501.81,-254.5 511.81,-259 511.81,-259"/>
-<text text-anchor="middle" x="456.16" y="-262.8" font-family="Arial" font-size="14.00">&lt;&lt;include&gt;&gt;</text>
-</g>
 </g>
 </svg>

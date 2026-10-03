@@ -1,5 +1,5 @@
 flowchart TD
-    A[Admin opens PENDING_APPROVAL] --> B{Expired?}
+    A[Admin opens PENDING_APPROVAL] --> B{currentTime >= startTime?}
     B -- Yes --> E[Set EXPIRED]
     B -- No --> C{Decision}
     C -- Reject --> R[Set REJECTED]

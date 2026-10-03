@@ -15,13 +15,10 @@ digraph G {
     UC5 [shape=ellipse, label="UC5 - Admin správa\nagentů"];
     UC6 [shape=ellipse, label="UC6 - Admin správa\nrezervací"];
     UC7 [shape=ellipse, label="UC7 - Kontrola\ndostupnosti"];
-    UC8 [shape=ellipse, label="UC8 - Potvrzení\nrezervace"];
   }
 
   User -> UC1; User -> UC2; User -> UC3; User -> UC4; User -> UC7;
   Admin -> UC5; Admin -> UC6;
   Admin -> User [dir=forward, arrowhead=empty, label="is-a", style=dashed];
 
-  UC2 -> UC7 [dir=forward, arrowhead=open, style=dashed, label="<<include>>"];
-  UC2 -> UC8 [dir=forward, arrowhead=open, style=dashed, label="<<include>>"];
 }

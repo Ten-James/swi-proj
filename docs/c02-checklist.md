@@ -8,7 +8,10 @@
 - [x] State diagrams are prepared for v0.1 and v0.2.
 - [x] Activity diagrams are prepared.
 - [x] Change-impact analysis for approval process is prepared.
+- [x] Changed and unaffected parts of baseline v0.2 are identified explicitly.
 - [x] Approve / Reject operation is specified.
+- [x] REQ-09 to REQ-12 passed the requirement acceptance review.
+- [x] Approval expiration boundary and clock source are defined.
 - [x] Architectural drivers for C03 are identified.
 - [ ] Team explicitly approves baseline v0.1.
 - [ ] Team explicitly approves baseline v0.2.
