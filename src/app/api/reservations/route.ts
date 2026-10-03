@@ -11,6 +11,37 @@ interface CreateReservationBody {
   note?: string;
 }
 
+export async function GET() {
+  const now = new Date();
+
+  await prisma.reservation.updateMany({
+    where: {
+      status: "PENDING_APPROVAL",
+      startTime: { lte: now },
+    },
+    data: { status: "EXPIRED" },
+  });
+
+  const reservations = await prisma.reservation.findMany({
+    orderBy: [{ agent: { name: "asc" } }, { startTime: "asc" }],
+    select: {
+      id: true,
+      status: true,
+      startTime: true,
+      endTime: true,
+      agent: {
+        select: {
+          id: true,
+          name: true,
+          requiresApproval: true,
+        },
+      },
+    },
+  });
+
+  return NextResponse.json(reservations);
+}
+
 export async function POST(request: Request) {
   let body: CreateReservationBody;
   try {
@@ -28,6 +59,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const normalizedName = name.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedName || !normalizedEmail) {
+    return NextResponse.json({ error: "name and email must not be blank" }, { status: 400 });
+  }
+
   const start = new Date(startTime);
   const end = new Date(endTime);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
@@ -35,8 +72,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const now = new Date();
     const reservation = await prisma.$transaction(async (tx) => {
-      // 1) agent exists and is free (active + no overlapping confirmed reservation)
+      await tx.reservation.updateMany({
+        where: {
+          status: "PENDING_APPROVAL",
+          startTime: { lte: now },
+        },
+        data: { status: "EXPIRED" },
+      });
+
+      // 1) Agent exists, is active and has no committed overlap.
       const agent = await tx.agent.findUnique({ where: { id: agentId } });
       if (!agent || !agent.isActive) {
         throw new ApiError(404, "Agent not found or inactive");
@@ -54,17 +100,18 @@ export async function POST(request: Request) {
         throw new ApiError(409, "Agent is not free in the requested time window");
       }
 
-      // 2) user is entitled to reserve (under their active reservation limit)
+      // 2) User remains under the active Reservation limit.
       const user = await tx.user.upsert({
-        where: { email },
-        update: { name },
-        create: { name, email },
+        where: { email: normalizedEmail },
+        update: { name: normalizedName },
+        create: { name: normalizedName, email: normalizedEmail },
       });
 
       const activeReservationCount = await tx.reservation.count({
         where: {
           userId: user.id,
-          status: { in: ["DRAFT", "CONFIRMED"] },
+          status: { in: ["PENDING_APPROVAL", "CONFIRMED"] },
+          endTime: { gt: now },
         },
       });
       if (activeReservationCount >= user.maxReservations) {
@@ -74,7 +121,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // 3) reserve the agent
+      // 3) Commit immediately or persist the request for Admin approval.
       return tx.reservation.create({
         data: {
           userId: user.id,
@@ -82,7 +129,7 @@ export async function POST(request: Request) {
           startTime: start,
           endTime: end,
           note,
-          status: "CONFIRMED",
+          status: agent.requiresApproval ? "PENDING_APPROVAL" : "CONFIRMED",
         },
       });
     });

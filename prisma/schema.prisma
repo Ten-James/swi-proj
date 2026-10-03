@@ -11,26 +11,34 @@ datasource db {
 }
 
 enum ReservationStatus {
-  DRAFT
+  PENDING_APPROVAL
   CONFIRMED
   CANCELLED
   REJECTED
+  EXPIRED
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }
 
 model Agent {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  description  String?
-  capacity     Int           @default(1)
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  reservations Reservation[]
+  id               String        @id @default(cuid())
+  name             String        @unique
+  description      String?
+  capacity         Int           @default(1)
+  isActive         Boolean       @default(true)
+  requiresApproval Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  reservations     Reservation[]
 }
 
 model User {
   id              String        @id @default(cuid())
   name            String
   email           String        @unique
+  role            UserRole      @default(USER)
   maxReservations Int           @default(3)
   createdAt       DateTime      @default(now())
   reservations    Reservation[]

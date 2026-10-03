@@ -10,22 +10,26 @@ const presetAgents = [
   {
     name: "Claude Sonnet 5",
     description: "General-purpose coding and reasoning agent.",
-    capacity: 4,
+    capacity: 1,
+    requiresApproval: false,
   },
   {
     name: "Claude Opus 5",
     description: "High-capability agent for complex, long-running tasks.",
-    capacity: 2,
+    capacity: 1,
+    requiresApproval: true,
   },
   {
     name: "Vision Analyst",
     description: "Specializes in image and document analysis.",
-    capacity: 3,
+    capacity: 1,
+    requiresApproval: false,
   },
   {
     name: "Data Pipeline Bot",
     description: "Runs scheduled data-processing jobs.",
     capacity: 1,
+    requiresApproval: true,
   },
 ];
 
@@ -33,10 +37,21 @@ async function main() {
   for (const agent of presetAgents) {
     await prisma.agent.upsert({
       where: { name: agent.name },
-      update: {},
+      update: agent,
       create: agent,
     });
   }
+
+  await prisma.user.upsert({
+    where: { email: "admin@agents.local" },
+    update: { name: "Reservation Admin", role: "ADMIN", maxReservations: 100 },
+    create: {
+      name: "Reservation Admin",
+      email: "admin@agents.local",
+      role: "ADMIN",
+      maxReservations: 100,
+    },
+  });
 }
 
 main()

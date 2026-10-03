@@ -17,15 +17,15 @@
 - [ ] Team explicitly approves baseline v0.2.
 
 ## Running application / evidence
-- [ ] Application demonstrates Create Reservation.
-- [ ] Application demonstrates Check Availability.
-- [ ] Application demonstrates Confirm behavior.
-- [ ] Application demonstrates Cancel Reservation.
-- [ ] Positive and negative/boundary example was executed for Create.
-- [ ] Positive and negative/boundary example was executed for Availability.
-- [ ] Positive and negative/boundary example was executed for Confirm behavior.
-- [ ] Positive and negative/boundary example was executed for Cancel.
-- [ ] Running application is updated for baseline v0.2.
-- [ ] Changed v0.2 examples are actually executed.
-- [ ] Evidence file contains real observed results.
+- [x] Application demonstrates Create Reservation.
+- [x] Application demonstrates Check Availability.
+- [x] Application demonstrates Confirm behavior.
+- [x] Application demonstrates Cancel Reservation.
+- [x] Positive and negative/boundary example was executed for Create.
+- [x] Positive and negative/boundary example was executed for Availability.
+- [x] Positive and negative/boundary example was executed for Confirm behavior.
+- [x] Positive and negative/boundary example was executed for Cancel.
+- [x] Running application is updated for baseline v0.2.
+- [x] Changed v0.2 examples are actually executed.
+- [x] Evidence file contains real observed results.
 - [ ] Application commit/tag is recorded.
