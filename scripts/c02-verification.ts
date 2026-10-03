@@ -5,14 +5,19 @@ const API_URL = process.env.API_URL ?? "http://localhost:3000";
 const runId = Date.now().toString(36);
 const testEmails: string[] = [];
 const testAgentIds: string[] = [];
+const sessionCookies = new Map<string, string>();
+const TEST_PASSWORD = "C02Test123!";
+let adminCookie = "";
 
 interface ApiResult {
   response: Response;
   body: Record<string, unknown>;
 }
 
-async function api(path: string, init?: RequestInit): Promise<ApiResult> {
-  const response = await fetch(`${API_URL}${path}`, init);
+async function api(path: string, init?: RequestInit, sessionCookie?: string): Promise<ApiResult> {
+  const headers = new Headers(init?.headers);
+  if (sessionCookie) headers.set("Cookie", sessionCookie);
+  const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   const body = (await response.json()) as Record<string, unknown>;
   return { response, body };
 }
@@ -45,6 +50,26 @@ function testEmail(label: string) {
   return email;
 }
 
+function responseCookie(response: Response) {
+  const value = response.headers.get("set-cookie")?.split(";", 1)[0];
+  assert.ok(value, "Authentication response must set a session cookie");
+  return value;
+}
+
+async function authenticate(email: string, name = "C02 Verification User") {
+  const existing = sessionCookies.get(email);
+  if (existing) return existing;
+
+  const result = await api(
+    "/api/auth/register",
+    json("POST", { name, email, password: TEST_PASSWORD }),
+  );
+  assert.equal(result.response.status, 201);
+  const cookie = responseCookie(result.response);
+  sessionCookies.set(email, cookie);
+  return cookie;
+}
+
 async function createViaApi(input: {
   email: string;
   agentId: string;
@@ -52,16 +77,16 @@ async function createViaApi(input: {
   endTime: string;
   name?: string;
 }) {
+  const cookie = await authenticate(input.email, input.name);
   return api(
     "/api/reservations",
     json("POST", {
-      name: input.name ?? "C02 Verification User",
-      email: input.email,
       agentId: input.agentId,
       startTime: input.startTime,
       endTime: input.endTime,
       note: `verification ${runId}`,
     }),
+    cookie,
   );
 }
 
@@ -75,12 +100,66 @@ async function runCase(name: string, work: () => Promise<void>) {
 }
 
 async function main() {
+  const adminLogin = await api(
+    "/api/auth/login",
+    json("POST", { email: "admin@agents.local", password: "Admin123!" }),
+  );
+  assert.equal(adminLogin.response.status, 200);
+  adminCookie = responseCookie(adminLogin.response);
+
   const immediate = await createAgent("Immediate", false);
   const immediateTwo = await createAgent("Immediate Two", false);
   const approval = await createAgent("Approval", true);
   const approvalConflict = await createAgent("Approval Conflict", true);
   const approvalConcurrent = await createAgent("Approval Concurrent", true);
   const inactive = await createAgent("Inactive", false, false);
+
+  await runCase("Authentication registers a User and returns the current session", async () => {
+    const email = testEmail("auth");
+    const cookie = await authenticate(email, "Authenticated User");
+    const me = await api("/api/auth/me", undefined, cookie);
+    assert.equal(me.response.status, 200);
+    assert.equal((me.body.user as Record<string, unknown>).email, email);
+    assert.equal((me.body.user as Record<string, unknown>).role, "USER");
+  });
+
+  await runCase("Authentication rejects an invalid password", async () => {
+    const email = testEmail("bad-password");
+    await authenticate(email);
+    const login = await api(
+      "/api/auth/login",
+      json("POST", { email, password: "wrong-password" }),
+    );
+    assert.equal(login.response.status, 401);
+  });
+
+  await runCase("Logout invalidates the active Session", async () => {
+    const email = testEmail("logout");
+    const cookie = await authenticate(email);
+    const logout = await api("/api/auth/logout", { method: "POST" }, cookie);
+    assert.equal(logout.response.status, 200);
+    const me = await api("/api/auth/me", undefined, cookie);
+    assert.equal(me.response.status, 401);
+    sessionCookies.delete(email);
+  });
+
+  await runCase("Reservation creation requires authentication", async () => {
+    const result = await api(
+      "/api/reservations",
+      json("POST", { agentId: immediate.id, startTime: iso(6), endTime: iso(7) }),
+    );
+    assert.equal(result.response.status, 401);
+  });
+
+  await runCase("Admin API requires the ADMIN role", async () => {
+    const email = testEmail("admin-access");
+    const userCookie = await authenticate(email);
+    const forbidden = await api("/api/admin/reservations", undefined, userCookie);
+    assert.equal(forbidden.response.status, 403);
+
+    const allowed = await api("/api/admin/reservations", undefined, adminCookie);
+    assert.equal(allowed.response.status, 200);
+  });
 
   await runCase("OP-01 creates a CONFIRMED Reservation without approval", async () => {
     const result = await createViaApi({
@@ -179,22 +258,28 @@ async function main() {
     assert.equal(created.response.status, 201);
     const id = String(created.body.id);
 
+    const unauthorizedEmail = testEmail("cancel-unauthorized");
+    const unauthorizedCookie = await authenticate(unauthorizedEmail);
     const unauthorized = await api(
       `/api/reservations/${id}/cancel`,
-      json("PATCH", { email: testEmail("cancel-unauthorized") }),
+      { method: "PATCH" },
+      unauthorizedCookie,
     );
     assert.equal(unauthorized.response.status, 403);
 
+    const ownerCookie = await authenticate(email);
     const cancelled = await api(
       `/api/reservations/${id}/cancel`,
-      json("PATCH", { email }),
+      { method: "PATCH" },
+      ownerCookie,
     );
     assert.equal(cancelled.response.status, 200);
     assert.equal(cancelled.body.status, "CANCELLED");
 
     const repeated = await api(
       `/api/reservations/${id}/cancel`,
-      json("PATCH", { email }),
+      { method: "PATCH" },
+      ownerCookie,
     );
     assert.equal(repeated.response.status, 200);
     assert.equal(repeated.body.status, "CANCELLED");
@@ -217,7 +302,8 @@ async function main() {
 
     const result = await api(
       `/api/reservations/${started.id}/cancel`,
-      json("PATCH", { email }),
+      { method: "PATCH" },
+      await authenticate(email),
     );
     assert.equal(result.response.status, 409);
     const stored = await prisma.reservation.findUnique({ where: { id: started.id } });
@@ -275,7 +361,8 @@ async function main() {
     });
     const cancelled = await api(
       `/api/reservations/${String(created.body.id)}/cancel`,
-      json("PATCH", { email }),
+      { method: "PATCH" },
+      await authenticate(email),
     );
     assert.equal(cancelled.response.status, 200);
     assert.equal(cancelled.body.status, "CANCELLED");
@@ -298,7 +385,8 @@ async function main() {
 
     const result = await api(
       `/api/reservations/${pending.id}/cancel`,
-      json("PATCH", { email }),
+      { method: "PATCH" },
+      await authenticate(email),
     );
     assert.equal(result.response.status, 409);
     assert.equal(result.body.status, "EXPIRED");
@@ -315,7 +403,8 @@ async function main() {
     });
     const decision = await api(
       `/api/reservations/${String(created.body.id)}/decision`,
-      json("PATCH", { adminEmail: "admin@agents.local", decision: "APPROVE" }),
+      json("PATCH", { decision: "APPROVE" }),
+      adminCookie,
     );
     assert.equal(decision.response.status, 200);
     assert.equal(decision.body.status, "CONFIRMED");
@@ -340,7 +429,8 @@ async function main() {
     });
     const decision = await api(
       `/api/reservations/${String(created.body.id)}/decision`,
-      json("PATCH", { adminEmail: email, decision: "APPROVE" }),
+      json("PATCH", { decision: "APPROVE" }),
+      await authenticate(email),
     );
     assert.equal(decision.response.status, 403);
     const stored = await prisma.reservation.findUnique({
@@ -358,7 +448,8 @@ async function main() {
     });
     const decision = await api(
       `/api/reservations/${String(created.body.id)}/decision`,
-      json("PATCH", { adminEmail: "admin@agents.local", decision: "REJECT" }),
+      json("PATCH", { decision: "REJECT" }),
+      adminCookie,
     );
     assert.equal(decision.response.status, 200);
     assert.equal(decision.body.status, "REJECTED");
@@ -388,7 +479,8 @@ async function main() {
     });
     const decision = await api(
       `/api/reservations/${String(created.body.id)}/decision`,
-      json("PATCH", { adminEmail: "admin@agents.local", decision: "APPROVE" }),
+      json("PATCH", { decision: "APPROVE" }),
+      adminCookie,
     );
     assert.equal(decision.response.status, 409);
     const stored = await prisma.reservation.findUnique({
@@ -412,7 +504,8 @@ async function main() {
     try {
       const decision = await api(
         `/api/reservations/${String(created.body.id)}/decision`,
-        json("PATCH", { adminEmail: "admin@agents.local", decision: "APPROVE" }),
+        json("PATCH", { decision: "APPROVE" }),
+        adminCookie,
       );
       assert.equal(decision.response.status, 409);
       const stored = await prisma.reservation.findUnique({
@@ -443,7 +536,8 @@ async function main() {
     });
     const decision = await api(
       `/api/reservations/${expired.id}/decision`,
-      json("PATCH", { adminEmail: "admin@agents.local", decision: "APPROVE" }),
+      json("PATCH", { decision: "APPROVE" }),
+      adminCookie,
     );
     assert.equal(decision.response.status, 409);
     assert.equal(decision.body.status, "EXPIRED");
@@ -468,11 +562,13 @@ async function main() {
     const [leftDecision, rightDecision] = await Promise.all([
       api(
         `/api/reservations/${String(left.body.id)}/decision`,
-        json("PATCH", { adminEmail: "admin@agents.local", decision: "APPROVE" }),
+        json("PATCH", { decision: "APPROVE" }),
+        adminCookie,
       ),
       api(
         `/api/reservations/${String(right.body.id)}/decision`,
-        json("PATCH", { adminEmail: "admin@agents.local", decision: "APPROVE" }),
+        json("PATCH", { decision: "APPROVE" }),
+        adminCookie,
       ),
     ]);
     const statuses = [leftDecision.response.status, rightDecision.response.status].sort();
@@ -499,6 +595,9 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
+    if (adminCookie) {
+      await api("/api/auth/logout", { method: "POST" }, adminCookie).catch(() => undefined);
+    }
     await prisma.reservation.deleteMany({
       where: { agentId: { in: testAgentIds } },
     });

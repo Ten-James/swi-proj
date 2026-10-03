@@ -13,7 +13,13 @@ npm run dev
 ```
 
 Aplikace je poté dostupná na `http://localhost:3000`. Seed vytvoří čtyři agenty,
-z nichž dva vyžadují schválení, a administrátora `admin@agents.local`.
+z nichž dva vyžadují schválení, a demo administrátora:
+
+- e-mail: `admin@agents.local`
+- heslo: `Admin123!`
+
+Běžný User si vytvoří účet na `/login`. Schvalování a úplný administrativní přehled
+jsou po přihlášení Admina dostupné na `/admin`.
 
 ## Implementované operace
 
@@ -25,6 +31,11 @@ z nichž dva vyžadují schválení, a administrátora `admin@agents.local`.
 - `GET /api/reservations` — globální přehled bez identity vlastníků;
 - `GET /api/agents` — seznam aktivních Agentů.
 
+Mutace Reservation odvozují Usera nebo Admina z databázové Session uložené v
+`HttpOnly` cookie. Registrační a přihlašovací endpointy jsou pod `/api/auth/*`;
+uživatelské Reservation vrací `/api/reservations/mine` a Admin přehled
+`/api/admin/reservations`.
+
 ## Ověření C02
 
 Při spuštěné aplikaci v jiném terminálu:
@@ -33,8 +44,9 @@ Při spuštěné aplikaci v jiném terminálu:
 npm run test:c02
 ```
 
-Skript ověřuje pozitivní, negativní, hraniční a souběžné scénáře OP-01 až
-OP-05 a po dokončení odstraní svá testovací data. Další kontroly:
+Skript ověřuje registraci, přihlášení, role-based autorizaci a pozitivní,
+negativní, hraniční i souběžné scénáře OP-01 až OP-05. Po dokončení odstraní
+svá testovací data. Další kontroly:
 
 ```powershell
 npm run lint

@@ -1,5 +1,6 @@
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { hashPassword } from "../src/lib/password";
 
 const adapter = new PrismaBetterSqlite3({
   url: process.env.DATABASE_URL ?? "file:./dev.db",
@@ -42,12 +43,19 @@ async function main() {
     });
   }
 
+  const adminPasswordHash = await hashPassword("Admin123!");
   await prisma.user.upsert({
     where: { email: "admin@agents.local" },
-    update: { name: "Reservation Admin", role: "ADMIN", maxReservations: 100 },
+    update: {
+      name: "Reservation Admin",
+      passwordHash: adminPasswordHash,
+      role: "ADMIN",
+      maxReservations: 100,
+    },
     create: {
       name: "Reservation Admin",
       email: "admin@agents.local",
+      passwordHash: adminPasswordHash,
       role: "ADMIN",
       maxReservations: 100,
     },

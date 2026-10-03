@@ -1,25 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-error";
-
-interface CancelBody {
-  email?: string;
-}
+import { getCurrentUser } from "@/lib/auth";
 
 export async function PATCH(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  let body: CancelBody;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const email = body.email?.trim().toLowerCase();
-  if (!email) {
-    return NextResponse.json({ error: "email is required" }, { status: 400 });
+  const actor = await getCurrentUser();
+  if (!actor) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
   const { id } = await context.params;
@@ -32,8 +22,7 @@ export async function PATCH(
         throw new ApiError(404, "Reservation not found");
       }
 
-      const actor = await tx.user.findUnique({ where: { email } });
-      if (!actor || (actor.id !== reservation.userId && actor.role !== "ADMIN")) {
+      if (actor.id !== reservation.userId && actor.role !== "ADMIN") {
         throw new ApiError(403, "Actor is not authorized to cancel this Reservation");
       }
 

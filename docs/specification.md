@@ -23,6 +23,20 @@ at one moment, its compute time may be allocated by at most one overlapping
 
 # Domain rules
 
+## AR-01 — Identity and access
+
+A User registers with a name, unique email address and password, then authenticates
+before creating or cancelling their own Reservations. The system derives the actor
+from the active server-side Session; an email supplied as ordinary request data is
+not accepted as proof of identity.
+
+Only a User with role `ADMIN` may open the administrative Reservation view or perform
+OP-05. The public Gantt overview remains readable without authentication and does not
+expose User identity or free-text notes.
+
+Passwords are stored only as salted hashes. A Session is represented in the browser
+by an `HttpOnly`, `SameSite=Lax` cookie and can be explicitly terminated by logout.
+
 ## BR-01 — Interval semantics
 
 Reservation intervals use half-open semantics:
@@ -115,7 +129,7 @@ The system shall not create a Reservation if doing so would exceed BR-04.
 
 ## Preconditions
 
-- User is identified by the submitted user data.
+- User is identified by an authenticated Session.
 - Agent exists.
 - Agent is active.
 - `startTime < endTime`.
@@ -141,7 +155,7 @@ BR-01, BR-02, BR-04, BR-05.
 
 ## Main success scenario
 
-1. User submits Agent, interval and optional note.
+1. Authenticated User submits Agent, interval and optional note.
 2. System validates required input.
 3. System validates the interval.
 4. System verifies that the Agent exists and is active.
@@ -344,7 +358,7 @@ when `currentTime < startTime`.
 ## Preconditions
 
 - Reservation exists.
-- actor is authorized to cancel it.
+- actor is authenticated and is its owner or an Admin.
 - Reservation is `CONFIRMED` or already `CANCELLED`.
 
 ## Success postcondition
@@ -368,7 +382,7 @@ BR-02, BR-03.
 
 1. User requests cancellation.
 2. System loads Reservation.
-3. System verifies ownership / authorization.
+3. System verifies the Session and ownership / Admin authorization.
 4. System checks the state and time boundary.
 5. System changes the state to `CANCELLED`.
 6. System returns the current state.
@@ -560,7 +574,7 @@ its next read or decision.
 ## Preconditions
 
 - Reservation exists;
-- actor is an authorized Admin / Approver;
+- actor has an authenticated Session with role `ADMIN`;
 - Reservation is `PENDING_APPROVAL` when the decision begins.
 
 ## Success postcondition — approval
@@ -587,7 +601,7 @@ BR-01, BR-02, BR-03, BR-04 and BR-05.
 ## Main success scenario — approval
 
 1. Admin requests approval of a `PENDING_APPROVAL` Reservation.
-2. System verifies the Admin's authorization.
+2. System verifies the Admin Session and role.
 3. System reads `currentTime` once and verifies `currentTime < startTime`.
 4. System verifies that the Agent is active.
 5. System rechecks overlap with `CONFIRMED` Reservations.

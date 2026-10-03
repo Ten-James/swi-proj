@@ -20,6 +20,10 @@ Baseline v0.2: implemented and verified; formal team approval remains open.
   or `EXPIRED` according to the accepted rules.
 - UC1 presents the global Reservation overview grouped by Agent without exposing
   Reservation owner identity.
+- Registration and login create server-side Sessions; Create, Cancel and OP-05 derive
+  the actor from the Session instead of trusting a submitted email address.
+- Approval and the full administrative Reservation list are exposed on the separate,
+  Admin-only `/admin` page.
 
 ## Actually executed verification examples
 
@@ -29,6 +33,11 @@ Executed on 2026-10-03 against the running application with:
 
 Observed result: `C02 verification PASSED` with all automated cases passing:
 
+- registration created a User and authenticated Session;
+- login with an invalid password was rejected;
+- logout invalidated the active Session;
+- anonymous Create and normal-User access to the Admin API were rejected;
+- an authenticated Admin could access the Admin API;
 - successful immediate Create persisted `CONFIRMED`;
 - zero-length interval and inactive Agent were rejected;
 - active Reservation limit was enforced for both `CONFIRMED` and

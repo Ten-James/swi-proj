@@ -31,6 +31,23 @@ Expected:
 
 These examples must be actually executed before C03 and then recorded in evidence.
 
+# Identity and access
+
+## Registration / login
+
+- valid registration → User account and authenticated Session are created;
+- valid credentials → login creates an authenticated Session;
+- invalid password → rejected without a Session;
+- logout → Session is invalidated.
+
+## Authorization
+
+- anonymous Create → rejected;
+- normal User opens Admin API or performs OP-05 → rejected;
+- authenticated Admin opens the administrative Reservation view and performs OP-05;
+- cancellation by a different normal User → rejected;
+- public Gantt remains readable without login and omits User identity and notes.
+
 # OP-01 — Create Reservation
 
 ## Positive

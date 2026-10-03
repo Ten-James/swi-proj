@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-error";
+import { getCurrentUser } from "@/lib/auth";
 
 interface CreateReservationBody {
-  name?: string;
-  email?: string;
   agentId?: string;
   startTime?: string;
   endTime?: string;
@@ -43,6 +42,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   let body: CreateReservationBody;
   try {
     body = await request.json();
@@ -50,19 +54,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { name, email, agentId, startTime, endTime, note } = body;
+  const { agentId, startTime, endTime, note } = body;
 
-  if (!name || !email || !agentId || !startTime || !endTime) {
+  if (!agentId || !startTime || !endTime) {
     return NextResponse.json(
-      { error: "name, email, agentId, startTime and endTime are required" },
+      { error: "agentId, startTime and endTime are required" },
       { status: 400 },
     );
-  }
-
-  const normalizedName = name.trim();
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedName || !normalizedEmail) {
-    return NextResponse.json({ error: "name and email must not be blank" }, { status: 400 });
   }
 
   const start = new Date(startTime);
@@ -101,11 +99,8 @@ export async function POST(request: Request) {
       }
 
       // 2) User remains under the active Reservation limit.
-      const user = await tx.user.upsert({
-        where: { email: normalizedEmail },
-        update: { name: normalizedName },
-        create: { name: normalizedName, email: normalizedEmail },
-      });
+      const user = await tx.user.findUnique({ where: { id: currentUser.id } });
+      if (!user) throw new ApiError(401, "Authenticated User no longer exists");
 
       const activeReservationCount = await tx.reservation.count({
         where: {

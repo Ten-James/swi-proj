@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-error";
+import { getCurrentUser } from "@/lib/auth";
 
 interface DecisionBody {
-  adminEmail?: string;
   decision?: "APPROVE" | "REJECT";
 }
 
@@ -11,6 +11,17 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  const admin = await getCurrentUser();
+  if (!admin) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+  if (admin.role !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Only an authorized Admin may decide a Reservation" },
+      { status: 403 },
+    );
+  }
+
   let body: DecisionBody;
   try {
     body = await request.json();
@@ -18,11 +29,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const adminEmail = body.adminEmail?.trim().toLowerCase();
   const decision = body.decision?.toUpperCase();
-  if (!adminEmail || (decision !== "APPROVE" && decision !== "REJECT")) {
+  if (decision !== "APPROVE" && decision !== "REJECT") {
     return NextResponse.json(
-      { error: "adminEmail and decision APPROVE or REJECT are required" },
+      { error: "decision APPROVE or REJECT is required" },
       { status: 400 },
     );
   }
@@ -32,11 +42,6 @@ export async function PATCH(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const admin = await tx.user.findUnique({ where: { email: adminEmail } });
-      if (!admin || admin.role !== "ADMIN") {
-        throw new ApiError(403, "Only an authorized Admin may decide a Reservation");
-      }
-
       const reservation = await tx.reservation.findUnique({
         where: { id },
         include: { agent: true },

@@ -28,4 +28,8 @@
 - [x] Running application is updated for baseline v0.2.
 - [x] Changed v0.2 examples are actually executed.
 - [x] Evidence file contains real observed results.
+- [x] Create and Cancel derive the User from an authenticated Session.
+- [x] OP-05 and the administrative Reservation view require role `ADMIN`.
+- [x] Registration, login and logout are implemented and verified.
+- [x] Admin operations are separated onto `/admin`.
 - [ ] Application commit/tag is recorded.
