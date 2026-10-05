@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { apiErrorResponse } from "@/lib/api-error-response";
+import { checkAgentAvailability } from "@/lib/reservation-service";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -20,27 +21,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid time range" }, { status: 400 });
   }
 
-  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
-  if (!agent) {
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  try {
+    const availability = await checkAgentAvailability(agentId, start, end);
+    return NextResponse.json({ agentId, availability });
+  } catch (error) {
+    return apiErrorResponse(error);
   }
-
-  if (!agent.isActive) {
-    return NextResponse.json({ agentId, availability: "UNAVAILABLE" });
-  }
-
-  const overlap = await prisma.reservation.findFirst({
-    where: {
-      agentId,
-      status: "CONFIRMED",
-      startTime: { lt: end },
-      endTime: { gt: start },
-    },
-    select: { id: true },
-  });
-
-  return NextResponse.json({
-    agentId,
-    availability: overlap ? "UNAVAILABLE" : "AVAILABLE",
-  });
 }

@@ -1,0 +1,41 @@
+classDiagram
+  class User {
+    +id: String
+    +email: String
+    +role: UserRole
+    +maxReservations: Int
+  }
+  class Session {
+    +tokenHash: String
+    +expiresAt: DateTime
+  }
+  class Agent {
+    +id: String
+    +isActive: Boolean
+    +requiresApproval: Boolean
+  }
+  class Reservation {
+    +id: String
+    +status: ReservationStatus
+    +startTime: DateTime
+    +endTime: DateTime
+    +note: String?
+  }
+  class TimeInterval {
+    +start: DateTime
+    +end: DateTime
+    +overlaps(other): Boolean
+  }
+  class ApprovalDecision {
+    <<enumeration>>
+    APPROVE
+    REJECT
+  }
+
+  User "1" --> "0..*" Session : authenticates through
+  User "1" --> "0..*" Reservation : owns
+  Agent "1" --> "0..*" Reservation : allocated by
+  Reservation *-- "1" TimeInterval : has
+  ApprovalDecision ..> Reservation : requests transition
+
+  note for Reservation "Only CONFIRMED intervals block an Agent.\nFor one Agent, CONFIRMED intervals must not overlap."

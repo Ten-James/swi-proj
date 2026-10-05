@@ -56,5 +56,30 @@ npm run build
 
 Úplná specifikace je v [docs/specification.md](docs/specification.md), plán testů
 v [docs/verification-plan.md](docs/verification-plan.md) a zaznamenané výsledky
-v [docs/evidence-and-evolution-c02.md](docs/evidence-and-evolution-c02.md).
+v [docs/evidence-and-evolution-c02.md](docs/evidence-and-evolution-c02.md). Detailní
+karty operací OP-01 až OP-04 jsou v
+[docs/c02/operations](docs/c02/operations/README.md).
+
+## C03 — architektura
+
+C03 rozpracovává scénář odloženého schválení Reservation včetně konfliktu, který
+vznikne až během čekání na rozhodnutí Admina. Výsledkem je modulární monolit, ve
+kterém jediný `Reservation Service` vlastní životní cyklus Reservation, pravidlo
+exkluzivity i transakční hranice. HTTP Route Handlers zůstávají tenkými adaptéry.
+
+- [Architektonický dokument](docs/c03/architecture.md)
+- [ADR-001 — vlastník životního cyklu Reservation](docs/c03/adr/ADR-001-reservation-lifecycle-owner.md)
+- [Renderované Mermaid diagramy](docs/c03/diagrams/README.md)
+- [Kontrolní seznam C03](docs/c03/checklist.md)
+- [Konsolidovaná evidence C01–C03](docs/evidence-and-evolution.md)
+
+Opakovatelná kontrola architektonického pravidla:
+
+```powershell
+npm run test:architecture
+```
+
+Kontrola hlídá, že změny životního cyklu Reservation zapisuje pouze
+`src/lib/reservation-service.ts` a že tento vlastník používá explicitní databázové
+transakce.
 

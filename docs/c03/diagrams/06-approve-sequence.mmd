@@ -1,0 +1,24 @@
+sequenceDiagram
+  actor Admin
+  participant API as Decision API Adapter
+  participant Auth as Session & Authorization
+  participant Service as Reservation Service
+  participant DB as Prisma / SQLite
+
+  Admin->>API: PATCH decision(APPROVE)
+  API->>Auth: getCurrentUser()
+  Auth->>DB: read valid Session + User role
+  DB-->>Auth: ADMIN actor
+  API->>Service: decideReservation(id, APPROVE)
+  Service->>DB: begin transaction; load pending Reservation + Agent
+  alt currentTime >= startTime
+    Service->>DB: persist EXPIRED
+    Service-->>API: expired result
+  else overlapping CONFIRMED exists
+    Service->>DB: recheck BR-02; rollback/no state change
+    Service-->>API: conflict; remains PENDING_APPROVAL
+  else Agent active and interval free
+    Service->>DB: persist CONFIRMED; commit
+    Service-->>API: confirmed result
+  end
+  API-->>Admin: HTTP result

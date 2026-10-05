@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { ApiError } from "@/lib/api-error";
+import { apiErrorResponse } from "@/lib/api-error-response";
 import { getCurrentUser } from "@/lib/auth";
+import { decideReservation, type ReservationDecision } from "@/lib/reservation-service";
 
 interface DecisionBody {
-  decision?: "APPROVE" | "REJECT";
+  decision?: ReservationDecision;
 }
 
 export async function PATCH(
@@ -38,62 +38,8 @@ export async function PATCH(
   }
 
   const { id } = await context.params;
-  const now = new Date();
-
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const reservation = await tx.reservation.findUnique({
-        where: { id },
-        include: { agent: true },
-      });
-      if (!reservation) {
-        throw new ApiError(404, "Reservation not found");
-      }
-      if (reservation.status !== "PENDING_APPROVAL") {
-        throw new ApiError(409, `Reservation is ${reservation.status}, not PENDING_APPROVAL`);
-      }
-
-      if (now >= reservation.startTime) {
-        const expired = await tx.reservation.update({
-          where: { id },
-          data: { status: "EXPIRED" },
-        });
-        return { reservation: expired, expired: true };
-      }
-
-      if (decision === "REJECT") {
-        const rejected = await tx.reservation.update({
-          where: { id },
-          data: { status: "REJECTED" },
-        });
-        return { reservation: rejected, expired: false };
-      }
-
-      if (!reservation.agent.isActive) {
-        throw new ApiError(409, "Agent is inactive; approval rejected");
-      }
-
-      const overlap = await tx.reservation.findFirst({
-        where: {
-          id: { not: id },
-          agentId: reservation.agentId,
-          status: "CONFIRMED",
-          startTime: { lt: reservation.endTime },
-          endTime: { gt: reservation.startTime },
-        },
-        select: { id: true },
-      });
-      if (overlap) {
-        throw new ApiError(409, "Agent is no longer available; approval rejected");
-      }
-
-      const confirmed = await tx.reservation.update({
-        where: { id },
-        data: { status: "CONFIRMED" },
-      });
-      return { reservation: confirmed, expired: false };
-    });
-
+    const result = await decideReservation(id, decision);
     if (result.expired) {
       return NextResponse.json(
         {
@@ -104,16 +50,8 @@ export async function PATCH(
         { status: 409 },
       );
     }
-
-    return NextResponse.json({
-      id: result.reservation.id,
-      status: result.reservation.status,
-    });
+    return NextResponse.json({ id: result.reservation.id, status: result.reservation.status });
   } catch (error) {
-    if (error instanceof ApiError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    console.error(error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }

@@ -1,0 +1,16 @@
+flowchart TB
+  subgraph RS[Reservation System]
+    UI[Web UI\nrole: user/admin interaction]
+    API[HTTP API Adapters\nrole: transport validation and response mapping]
+    AUTH[Session & Authorization\nrole: authenticate actor\nowns: Session validity and role claims]
+    RMS[Reservation Service\nrole: lifecycle, availability, approval\nowns: Reservation transitions and BR-02]
+    PERSIST[Prisma Persistence Adapter\nrole: transactional storage access]
+    DB[(SQLite\nowns: persisted Users, Sessions, Agents, Reservations)]
+
+    UI -->|HTTP commands and queries| API
+    API -->|verify actor| AUTH
+    API -->|typed use-case calls| RMS
+    AUTH -->|User/Session reads| PERSIST
+    RMS -->|transactional reads/writes| PERSIST
+    PERSIST -->|SQL| DB
+  end
