@@ -31,6 +31,23 @@ Expected:
 
 These examples must be actually executed before C03 and then recorded in evidence.
 
+# Identity and access
+
+## Registration / login
+
+- valid registration → User account and authenticated Session are created;
+- valid credentials → login creates an authenticated Session;
+- invalid password → rejected without a Session;
+- logout → Session is invalidated.
+
+## Authorization
+
+- anonymous Create → rejected;
+- normal User opens Admin API or performs OP-05 → rejected;
+- authenticated Admin opens the administrative Reservation view and performs OP-05;
+- cancellation by a different normal User → rejected;
+- public Gantt remains readable without login and omits User identity and notes.
+
 # OP-01 — Create Reservation
 
 ## Positive
@@ -119,16 +136,55 @@ new interval overlaps another `CONFIRMED` Reservation → rejected, old values u
 
 ---
 
-# OP-05 — Approve Reservation (v0.2)
+# Baseline v0.2 — changed behavior
 
-## Positive
+## OP-01 — Create requiring approval
 
-`PENDING_APPROVAL`, not expired, Agent active, no overlap → `CONFIRMED`.
+### Positive
 
-## Negative
+Valid request + `Agent.requiresApproval = true` → one `PENDING_APPROVAL`
+Reservation is persisted; it is not yet a committed allocation.
 
-conflict appeared while waiting → approval rejected.
+### Negative
 
-Additional:
-- Admin rejects → `REJECTED`;
-- deadline passed → `EXPIRED`.
+Invalid interval, inactive Agent, current overlap or User at limit → rejected;
+no Reservation is created.
+
+## OP-02 — Availability while approval is pending
+
+Existing `PENDING_APPROVAL` for `[10:00,11:00)` and no `CONFIRMED` overlap:
+
+- query `[10:30,10:45)` → `AVAILABLE`;
+- after that Reservation is approved → the same query returns `UNAVAILABLE`.
+
+## OP-04 — Cancel pending approval
+
+- `PENDING_APPROVAL` before `startTime` → `CANCELLED`;
+- `PENDING_APPROVAL` at `startTime` → cancellation rejected and Reservation is
+  treated as `EXPIRED`.
+
+## OP-05 — Approve / Reject Reservation
+
+### Positive approval
+
+`PENDING_APPROVAL` + authorized Admin + `currentTime < startTime` + active Agent
+and no overlap → `CONFIRMED`.
+
+### Rejection
+
+Authorized Admin rejects before `startTime` → `REJECTED`.
+
+### Negative
+
+- conflict appeared while waiting → approval rejected, remains `PENDING_APPROVAL`;
+- inactive Agent → approval rejected, remains `PENDING_APPROVAL`;
+- unauthorized User → rejected, state unchanged.
+
+### Time boundary
+
+Approval attempted with `currentTime == startTime` → `EXPIRED`; approval rejected.
+
+### Concurrency
+
+Two conflicting Create / Approve operations execute concurrently → at most one
+Reservation reaches `CONFIRMED`.

@@ -40,15 +40,6 @@ Each diagram is available as Mermaid source, Graphviz DOT, SVG and PNG.
 - [SVG](diagrams/svg/04-activity-availability-v01.svg)
 - [PNG](diagrams/png/04-activity-availability-v01.png)
 
-## Activity — Confirm decision inside Create v0.1
-
-![Activity — Confirm decision inside Create v0.1](diagrams/svg/05-activity-confirm-v01.svg)
-
-- [Mermaid](diagrams/mermaid/05-activity-confirm-v01.mmd)
-- [DOT](diagrams/dot/05-activity-confirm-v01.dot)
-- [SVG](diagrams/svg/05-activity-confirm-v01.svg)
-- [PNG](diagrams/png/05-activity-confirm-v01.png)
-
 ## Activity — Cancel Reservation v0.1
 
 ![Activity — Cancel Reservation v0.1](diagrams/svg/06-activity-cancel-v01.svg)
@@ -76,14 +67,14 @@ Each diagram is available as Mermaid source, Graphviz DOT, SVG and PNG.
 - [SVG](diagrams/svg/08-state-v02.svg)
 - [PNG](diagrams/png/08-state-v02.png)
 
-## Activity — Confirmation decision v0.2
+## Activity — Create Reservation v0.2
 
-![Activity — Confirmation decision v0.2](diagrams/svg/09-activity-confirm-v02.svg)
+![Activity — Create Reservation v0.2](diagrams/svg/09-activity-create-v02.svg)
 
-- [Mermaid](diagrams/mermaid/09-activity-confirm-v02.mmd)
-- [DOT](diagrams/dot/09-activity-confirm-v02.dot)
-- [SVG](diagrams/svg/09-activity-confirm-v02.svg)
-- [PNG](diagrams/png/09-activity-confirm-v02.png)
+- [Mermaid](diagrams/mermaid/09-activity-create-v02.mmd)
+- [DOT](diagrams/dot/09-activity-create-v02.dot)
+- [SVG](diagrams/svg/09-activity-create-v02.svg)
+- [PNG](diagrams/png/09-activity-create-v02.png)
 
 ## Activity — Approve / Reject Reservation v0.2
 
@@ -148,4 +139,3 @@ Each diagram is available as Mermaid source, Graphviz DOT, SVG and PNG.
 - [DOT](diagrams/dot/16-gantt-reservation-overview-example.dot)
 - [SVG](diagrams/svg/16-gantt-reservation-overview-example.svg)
 - [PNG](diagrams/png/16-gantt-reservation-overview-example.png)
-

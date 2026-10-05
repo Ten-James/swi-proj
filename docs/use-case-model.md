@@ -33,7 +33,8 @@ Přehled je zobrazen formou **Ganttova diagramu**:
 - každá Reservation je zobrazena jako úsek od `startTime` do `endTime`;
 - operace nic nemění v systému, jde pouze o read-only přehled.
 
-Přesný rozsah detailů o vlastníkovi Reservation zobrazených v Ganttu je zatím `TBD`.
+Gantt zobrazuje Agent, interval a stav Reservation. Identita vlastníka se běžnému
+Userovi nezobrazuje.
 
 
 ## UC2 — Vytvoření rezervace
@@ -48,7 +49,8 @@ If everything passes:
 
 If any rule fails, no Reservation is created.
 
-UC2 includes UC7 and UC8 logically.
+UC2 uses the availability rule represented by UC7. The system commits a successful
+request directly as `CONFIRMED`; there is no separate confirmation use case.
 
 ## UC3 — Zrušení rezervace
 
@@ -70,6 +72,9 @@ or other rules, the edit is rejected and the existing Reservation stays unchange
 
 Admin creates, edits, activates and deactivates AI Agents.
 
+In baseline v0.2, Admin also configures whether an Agent has
+`requiresApproval = true`.
+
 ## UC6 — Admin správa rezervací
 
 Admin can inspect and manage Reservations without bypassing domain invariants.
@@ -80,28 +85,16 @@ Maps to **Check Availability**.
 
 User checks whether an Agent is free for a requested interval.
 
-## UC8 — Potvrzení rezervace
-
-Maps to the business meaning of **Confirm Reservation**.
-
-In v0.1 this is not a separate persisted transition.
-Confirmation is an atomic part of UC2:
-
-- checks pass → Reservation is created as `CONFIRMED`;
-- checks fail → no Reservation is created.
-
----
-
 # Baseline v0.2
 
-UC1–UC8 remain.
+UC1–UC7 remain.
 
-## UC9 — Schválení / zamítnutí rezervace
+## UC8 — Schválení / zamítnutí rezervace
 
 For Agents with `requiresApproval = true`, UC2 creates
 `PENDING_APPROVAL` after immediate validation.
 
-Admin / Approver then performs UC9:
+Admin / Approver then performs UC8:
 
 - approve → `PENDING_APPROVAL → CONFIRMED`
 - reject → `PENDING_APPROVAL → REJECTED`
@@ -119,8 +112,8 @@ When approval happens, availability is checked again.
 |---|---|
 | Create Reservation | UC2 — Vytvoření rezervace |
 | Check Availability | UC7 — Kontrola dostupnosti |
-| Confirm Reservation | UC8 — Potvrzení rezervace |
+| Confirm Reservation | system decision inside UC2; no separate User use case |
 | Cancel Reservation | UC3 — Zrušení rezervace |
-| Approve Reservation (v0.2) | UC9 — Schválení / zamítnutí rezervace |
+| Approve Reservation (v0.2) | UC8 — Schválení / zamítnutí rezervace |
 
 UC1, UC4, UC5 and UC6 remain from the team's original model.

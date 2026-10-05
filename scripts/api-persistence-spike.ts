@@ -23,8 +23,8 @@ async function main() {
   let reservationId: string | undefined;
 
   try {
-    // ACT - rezervaci vytváříme přes skutečné HTTP API
-    const response = await fetch(`${API_URL}/api/reservations`, {
+    // ARRANGE - vytvoříme skutečný User účet a získáme Session cookie.
+    const registration = await fetch(`${API_URL}/api/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,6 +32,22 @@ async function main() {
       body: JSON.stringify({
         name: "C01 Test User",
         email,
+        password: "C01Test123!",
+      }),
+    });
+
+    assert.equal(registration.status, 201);
+    const sessionCookie = registration.headers.get("set-cookie")?.split(";", 1)[0];
+    assert.ok(sessionCookie, "Registration did not return a Session cookie");
+
+    // ACT - rezervaci vytváříme přes skutečné HTTP API
+    const response = await fetch(`${API_URL}/api/reservations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: sessionCookie,
+      },
+      body: JSON.stringify({
         agentId: agent.id,
         startTime,
         endTime,
@@ -69,7 +85,7 @@ async function main() {
     assert.equal(stored.startTime.toISOString(), startTime);
     assert.equal(stored.endTime.toISOString(), endTime);
 
-    // Zkontrolujeme i uživatele vytvořeného API endpointem
+    // Zkontrolujeme i Usera, kterého Reservation převzala z autentizované Session.
     const user = await prisma.user.findUnique({
       where: {
         email,

@@ -11,7 +11,6 @@ flowchart LR
         UC5([UC5 - Admin správa agentů])
         UC6([UC6 - Admin správa rezervací])
         UC7([UC7 - Kontrola dostupnosti])
-        UC8([UC8 - Potvrzení rezervace])
     end
 
     U --- UC1
@@ -21,6 +20,3 @@ flowchart LR
     U --- UC7
     A --- UC5
     A --- UC6
-
-    UC2 -. include .-> UC7
-    UC2 -. include .-> UC8

@@ -1,17 +1,52 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-error";
+import { getCurrentUser } from "@/lib/auth";
 
 interface CreateReservationBody {
-  name?: string;
-  email?: string;
   agentId?: string;
   startTime?: string;
   endTime?: string;
   note?: string;
 }
 
+export async function GET() {
+  const now = new Date();
+
+  await prisma.reservation.updateMany({
+    where: {
+      status: "PENDING_APPROVAL",
+      startTime: { lte: now },
+    },
+    data: { status: "EXPIRED" },
+  });
+
+  const reservations = await prisma.reservation.findMany({
+    orderBy: [{ agent: { name: "asc" } }, { startTime: "asc" }],
+    select: {
+      id: true,
+      status: true,
+      startTime: true,
+      endTime: true,
+      agent: {
+        select: {
+          id: true,
+          name: true,
+          requiresApproval: true,
+        },
+      },
+    },
+  });
+
+  return NextResponse.json(reservations);
+}
+
 export async function POST(request: Request) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   let body: CreateReservationBody;
   try {
     body = await request.json();
@@ -19,11 +54,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { name, email, agentId, startTime, endTime, note } = body;
+  const { agentId, startTime, endTime, note } = body;
 
-  if (!name || !email || !agentId || !startTime || !endTime) {
+  if (!agentId || !startTime || !endTime) {
     return NextResponse.json(
-      { error: "name, email, agentId, startTime and endTime are required" },
+      { error: "agentId, startTime and endTime are required" },
       { status: 400 },
     );
   }
@@ -35,8 +70,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const now = new Date();
     const reservation = await prisma.$transaction(async (tx) => {
-      // 1) agent exists and is free (active + no overlapping confirmed reservation)
+      await tx.reservation.updateMany({
+        where: {
+          status: "PENDING_APPROVAL",
+          startTime: { lte: now },
+        },
+        data: { status: "EXPIRED" },
+      });
+
+      // 1) Agent exists, is active and has no committed overlap.
       const agent = await tx.agent.findUnique({ where: { id: agentId } });
       if (!agent || !agent.isActive) {
         throw new ApiError(404, "Agent not found or inactive");
@@ -54,17 +98,15 @@ export async function POST(request: Request) {
         throw new ApiError(409, "Agent is not free in the requested time window");
       }
 
-      // 2) user is entitled to reserve (under their active reservation limit)
-      const user = await tx.user.upsert({
-        where: { email },
-        update: { name },
-        create: { name, email },
-      });
+      // 2) User remains under the active Reservation limit.
+      const user = await tx.user.findUnique({ where: { id: currentUser.id } });
+      if (!user) throw new ApiError(401, "Authenticated User no longer exists");
 
       const activeReservationCount = await tx.reservation.count({
         where: {
           userId: user.id,
-          status: { in: ["DRAFT", "CONFIRMED"] },
+          status: { in: ["PENDING_APPROVAL", "CONFIRMED"] },
+          endTime: { gt: now },
         },
       });
       if (activeReservationCount >= user.maxReservations) {
@@ -74,7 +116,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // 3) reserve the agent
+      // 3) Commit immediately or persist the request for Admin approval.
       return tx.reservation.create({
         data: {
           userId: user.id,
@@ -82,7 +124,7 @@ export async function POST(request: Request) {
           startTime: start,
           endTime: end,
           note,
-          status: "CONFIRMED",
+          status: agent.requiresApproval ? "PENDING_APPROVAL" : "CONFIRMED",
         },
       });
     });
