@@ -1,0 +1,42 @@
+classDiagram
+  class DecisionApiAdapter {
+    +PATCH(request, routeContext): Response
+  }
+  class SessionService {
+    +getCurrentUser(): SessionUser?
+  }
+  class ReservationService {
+    +createReservation(input): Reservation
+    +checkAgentAvailability(agentId, start, end): Availability
+    +cancelReservation(id, actor): CancelResult
+    +decideReservation(id, decision): DecisionResult
+    +listPublicReservations(): ReservationView[]
+  }
+  class PrismaPersistenceAdapter {
+    +transaction(work)
+    +findReservation(id)
+    +findConfirmedOverlap(agentId, interval)
+    +updateReservationStatus(id, status)
+  }
+  class Reservation {
+    +id: String
+    +status: ReservationStatus
+    +startTime: DateTime
+    +endTime: DateTime
+  }
+  class Agent {
+    +id: String
+    +isActive: Boolean
+    +requiresApproval: Boolean
+  }
+  class ApiError {
+    +status: Int
+    +message: String
+  }
+
+  DecisionApiAdapter --> SessionService : authenticate / authorize
+  DecisionApiAdapter --> ReservationService : invokes
+  ReservationService --> PrismaPersistenceAdapter : transactional port
+  PrismaPersistenceAdapter --> Reservation : persists
+  PrismaPersistenceAdapter --> Agent : reads
+  ReservationService ..> ApiError : reports rule failure

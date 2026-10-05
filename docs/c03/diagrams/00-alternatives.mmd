@@ -1,0 +1,10 @@
+flowchart LR
+  subgraph A[Alternative A — modular monolith]
+    AAPI[HTTP API adapters] --> ASVC[Reservation Service]
+    ASVC --> ADB[(SQLite via Prisma)]
+  end
+
+  subgraph B[Alternative B — separate decision service]
+    BWEB[Next.js web application] -->|HTTP command| BSVC[Reservation Decision Service]
+    BSVC --> BDB[(Service-owned database)]
+  end

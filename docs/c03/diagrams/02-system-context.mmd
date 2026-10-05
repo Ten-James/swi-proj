@@ -1,0 +1,9 @@
+flowchart LR
+  U[User]
+  A[Admin / Approver]
+  RS[Reservation System]
+
+  U -->|register, login, availability, create, cancel| RS
+  RS -->|global Gantt, own reservations, outcomes| U
+  A -->|login, approve, reject, cancel| RS
+  RS -->|pending queue, all reservations, outcomes| A

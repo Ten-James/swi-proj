@@ -1,0 +1,18 @@
+flowchart LR
+  B[Browser]
+  subgraph NODE[Single Next.js / Node.js process]
+    UI[React UI]
+    API[Route Handlers]
+    AUTH[Session & Authorization]
+    RMS[Reservation Service]
+    PA[Prisma Adapter]
+    UI --> API
+    API --> AUTH
+    API --> RMS
+    AUTH --> PA
+    RMS --> PA
+  end
+  DB[(SQLite database file)]
+
+  B <-->|HTTP + HttpOnly session cookie| NODE
+  PA <-->|local SQL read/write| DB

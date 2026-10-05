@@ -1,0 +1,11 @@
+stateDiagram-v2
+  [*] --> CONFIRMED : create / Reservation Service\n[approval not required]
+  [*] --> PENDING_APPROVAL : create / Reservation Service\n[approval required]
+  PENDING_APPROVAL --> CONFIRMED : Admin requests approve\nReservation Service decides
+  PENDING_APPROVAL --> REJECTED : Admin requests reject\nReservation Service decides
+  PENDING_APPROVAL --> EXPIRED : read/decision observes startTime\nReservation Service decides
+  PENDING_APPROVAL --> CANCELLED : owner/Admin requests cancel\nReservation Service decides
+  CONFIRMED --> CANCELLED : owner/Admin requests cancel\nReservation Service decides
+  CANCELLED --> [*]
+  REJECTED --> [*]
+  EXPIRED --> [*]
