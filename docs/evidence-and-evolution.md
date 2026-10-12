@@ -130,3 +130,85 @@ skutečný průchod API → SQLite → opětovné načtení stejné Reservation.
   závislosti.
 - Reservation Service je stále přímo svázaný s Prisma adaptérem.
 - Přesný commit/tag doplní tým až při vytvoření schváleného Git baseline.
+
+## C05 DD Verification Evidence
+
+Vybraná jednotka: pravidla životního cyklu Reservation
+([detailed design](c05/detailed-design.md), shrnutí v
+[architecture-and-decisions.md](architecture-and-decisions.md#c05-detailed-design)).
+
+### Tests derived from DD
+
+- `scripts/c05-unit-tests.ts` – 16 unit testů: překryv intervalů a hranice
+  dotazu (`BR-01`), počáteční stav (změna OP-01 v0.2), limit (`BR-04`), větve
+  zrušení (`REQ-08`, `BR-03`, `REQ-12`), plán rozhodnutí (`REQ-09`, `REQ-11`,
+  `REQ-12`) a podmínky potvrzení (`REQ-09`, `BR-02`, `BR-05`). Testy ověřují
+  doménový kód selhání (`ReservationRuleViolation.code`), ne HTTP status.
+- Collaboration: C02 scénáře přes HTTP + SQLite, nově včetně scénáře
+  „Malformed JSON payloads are rejected with 400, not 500“.
+- Architecture rule: `scripts/architecture-check.ts` – policy nesmí mít žádný
+  import; mutace Reservation (libovolný receiver i `$executeRaw`) jen v
+  `reservation-service.ts`.
+
+### Unit/component tests executed
+
+Spuštěno 2026-10-12 na čisté lokální SQLite (`db:deploy` + `db:seed`) a
+`next dev`:
+
+| Kontrola | Výsledek |
+|---|---|
+| `npm run test:c05` | **PASS** — 16/16 |
+| `npm run test:architecture` | **PASS** — navíc ověřeno negativně: dočasný soubor s `db.reservation.update(` i import v policy kontrolu shodí |
+| `npm run test:c02` | **PASS** — 26/26 (25 původních + malformed payload) |
+| `npm run test:api-persistence` | **PASS** — ID z API = ID z DB |
+| `npm run typecheck` (`next typegen && tsc --noEmit`) | **PASS** |
+| `npm run lint` | **PASS** |
+| `npm run build` | **PASS** |
+
+Pozn.: samotné `npx tsc --noEmit` na čistém checkoutu selže na
+`Cannot find name 'LayoutProps'` – globální typy generuje až Next.js
+(`next typegen`/`build`). Proto přibyl skript `typecheck`.
+
+### Design ↔ implementation mismatch
+
+Code review DD proti kódu (2026-10-12) našlo:
+
+| # | DD tvrdil | Kód dělal | Rozhodnutí |
+|---|---|---|---|
+| 1 | `intervalsOverlap` je jediná definice překryvu pro Create, Availability i Approve | funkce se v produkci nevolala; překryv byl třikrát ručně zapsán jako Prisma `where` | **update code** – DD je správně |
+| 2 | policy rozhoduje pravidla | policy házela `ApiError` s HTTP kódy → doménové pravidlo znalo transport | **update code + DD** – doménové kódy, mapování v adaptéru |
+| 3 | `REQ-09` = počáteční stav; Decision = `REQ-10`–`REQ-12` | spec: `REQ-09` = podmínky Approve, počáteční stav je změna OP-01 | **update DD** + komentáře v kódu |
+| 4 | – | `null`/pole/číslo jako JSON tělo nebo ne-string pole → neošetřený `TypeError` → 500 (reprodukováno) | **update code** – 400 |
+| 5 | – | duplicitní typ actora (`PolicyActor` / `ReservationActor`), duplicitní expirační dotaz v Create | **update code** |
+
+### Resolution
+
+- `overlapBounds()` v policy je jediná definice `BR-01`; `intervalsOverlap` i
+  nový `findConfirmedOverlap()` v service ji používají (Create, Availability,
+  Approve). Unit test hlídá ostrost hranic.
+- `ReservationRuleViolation` + `ReservationRuleCode` nahradily `ApiError` v
+  policy; `api-error-response.ts` mapuje kód na HTTP (403/409 beze změny
+  pozorovatelného chování – potvrzeno C02 sadou) a nově vrací i `code`.
+- `src/lib/request-body.ts` (`readJsonObject`, `optionalString`) použito v
+  `POST /api/reservations`, `PATCH …/decision`, `register`, `login`.
+- `createReservation` používá sdílený `expirePendingReservations(tx, now)`;
+  service používá `PolicyActor`.
+- Architecture check zpřísněn (viz výše).
+
+### Remaining design risk
+
+- Správnost pod souběhem (`REQ-07`, `REQ-10`, `BR-04`) stojí na serializaci
+  zápisů SQLite v jednom procesu; unit testy ji nepokrývají, C02 souběžné
+  scénáře ano. Při přechodu na jinou DB je nutné znovu rozhodnout izolaci/zámky.
+- Create stále rozhoduje `BR-05` a překryv v service (`ApiError`), ne přes
+  policy – vědomě ponecháno (DD §9, §11 PARTLY).
+- Policy a databázový dotaz sdílí hranice, ale ekvivalenci dotazu s
+  `intervalsOverlap` ověřuje jen integrační C02 scénář `OP-02 applies half-open
+  interval boundaries`.
+- Architecture check je textový (regex), ne AST; obejít jde např. dynamickým
+  přístupem k delegátu.
+
+### Commit/tag
+
+Tag `c05-detailed-design` (anotovaný) na commitu, který obsahuje tento DD,
+opravy z review a výsledky testů výše. Ověření: `git show c05-detailed-design`.

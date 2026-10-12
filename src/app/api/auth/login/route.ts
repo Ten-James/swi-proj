@@ -2,22 +2,16 @@ import { NextResponse } from "next/server";
 import { createSession } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
-
-interface LoginBody {
-  email?: string;
-  password?: string;
-}
+import { optionalString, readJsonObject } from "@/lib/request-body";
 
 export async function POST(request: Request) {
-  let body: LoginBody;
-  try {
-    body = await request.json();
-  } catch {
+  const body = await readJsonObject(request);
+  if (!body) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const email = body.email?.trim().toLowerCase();
-  const password = body.password ?? "";
+  const email = optionalString(body, "email")?.trim().toLowerCase();
+  const password = optionalString(body, "password") ?? "";
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }

@@ -161,6 +161,19 @@ async function main() {
     assert.equal(allowed.response.status, 200);
   });
 
+  await runCase("Malformed JSON payloads are rejected with 400, not 500", async () => {
+    const userCookie = await authenticate(testEmail("malformed-body"));
+    for (const payload of ["null", "[]", "42"]) {
+      const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: payload };
+      const create = await api("/api/reservations", init, userCookie);
+      assert.equal(create.response.status, 400, `create with ${payload}`);
+      const decision = await api("/api/reservations/unknown/decision", { ...init, method: "PATCH" }, adminCookie);
+      assert.equal(decision.response.status, 400, `decision with ${payload}`);
+    }
+    const wrongType = await api("/api/reservations/unknown/decision", json("PATCH", { decision: 1 }), adminCookie);
+    assert.equal(wrongType.response.status, 400);
+  });
+
   await runCase("OP-01 creates a CONFIRMED Reservation without approval", async () => {
     const result = await createViaApi({
       email: testEmail("create-positive"),
