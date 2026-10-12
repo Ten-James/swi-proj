@@ -1,0 +1,423 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SWI C03 Part A</title>
+<style>
+:root{--bg:#f7f8fb;--paper:#fff;--ink:#182230;--line:#d7dde7;--accent:#2859d6;--accent2:#eef3ff;--diagram:#f3f6fa}
+*{box-sizing:border-box}body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink);margin:0;line-height:1.58}
+main{max-width:1120px;margin:auto;padding:22px 36px 100px}.langbar{position:sticky;top:0;z-index:10;background:rgba(247,248,251,.96);padding:12px 0;border-bottom:1px solid var(--line)}
+button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:white;cursor:pointer;margin-right:6px}button.active{background:var(--accent);color:white}
+h1{font-size:2.3rem}h2{font-size:1.55rem;margin-top:2.25rem;border-top:1px solid var(--line);padding-top:1rem}h3{font-size:1.15rem;margin-top:1.4rem}
+blockquote{background:var(--accent2);border-left:5px solid var(--accent);padding:12px 18px}.diagram{background:var(--diagram);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0 20px;overflow:auto}
+.diagram pre{margin:0;background:transparent;color:var(--ink);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.94rem;line-height:1.42}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#edf0f5;padding:.08em .3em;border-radius:4px}.table-wrap{overflow:auto;margin:12px 0 22px}
+table{border-collapse:collapse;width:100%;background:var(--paper)}th,td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left}th{background:#edf2fb}
+li{margin:.35rem 0}.checks{list-style:"☐  "}hr{border:0;border-top:2px solid var(--line);margin:46px 0}.en{display:none}
+</style>
+<script>function setLang(x){document.querySelector('.cz').style.display=x==='cz'?'block':'none';document.querySelector('.en').style.display=x==='en'?'block':'none';document.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.lang===x));}</script>
+</head><body onload="setLang('cz')"><main><div class="langbar"><button data-lang="cz" onclick="setLang('cz')">CZ</button><button data-lang="en" onclick="setLang('en')">EN</button></div><section class="cz"><h1>CZ</h1>
+<h2>C03 — Část A: Zmapujte současnou realizaci jednoho scénáře</h2>
+<h3>Úterní předstih / první část společného C03</h3>
+<h2>Cíl</h2>
+<p>Pochopit, jak současná implementace skutečně realizuje jeden scénář z C02, a připravit ověřený AS-IS podklad pro návrh architektury.</p>
+<h2>V tomto průchodu se naučíte</h2>
+<ul>
+<li>sledovat scénář od specifikace až do konkrétního kódu;</li>
+<li>rozlišit business krok od technických detailů implementace;</li>
+<li>identifikovat části systému, které scénář realizují;</li>
+<li>zjistit, kde je stav uložen a kde se rozhoduje o jeho změně;</li>
+<li>dohledat, kde se v implementaci vynucuje business pravidlo / invariant;</li>
+<li>identifikovat relevantní externí a perzistenční závislosti;</li>
+<li>vytvořit jednoduchý AS-IS strukturální pohled podle skutečného kódu;</li>
+<li>formulovat konkrétní architektonickou otázku založenou na evidenci.</li>
+</ul>
+<p>Vycházíte ze <strong>Specification Baseline v0.2</strong> a běžící aplikace z C02.</p>
+<p>Použijte jeden scénář, který už máte ve v0.2. Doporučený je <code>Confirm Reservation</code>; pokud je pro váš tým architektonicky zajímavější schvalování, použijte příslušný scénář s approval.</p>
+<h3>Výstup Části A</h3>
+<p>Do <code>docs/architecture-and-decisions.md</code> vložte:</p>
+<ol>
+<li>odkaz na použitý scénář a související požadavky/pravidla;</li>
+<li>mapování hlavních kroků scénáře na konkrétní kód;</li>
+<li>mapování jedné důležité alternativní/chybové větve;</li>
+<li>seznam hlavních částí implementace, které scénář realizují;</li>
+<li>kde je stav uložen, kdo rozhoduje o změně stavu a kde se vynucuje jedno důležité pravidlo;</li>
+<li>relevantní externí/perzistenční závislosti;</li>
+<li>jeden <strong>AS-IS strukturální diagram</strong>;</li>
+<li>jednu konkrétní otázku pro další architektonický návrh.</li>
+</ol>
+<hr>
+<h2>A1. Uveďte scénář, který sledujete</h2>
+<p>Zapište pouze referenci:</p>
+<div class='table-wrap'><table><thead><tr><th>Položka</th><th>Hodnota</th></tr></thead>
+<tbody>
+<tr><td>Scénář / operace</td><td>např. <code>Confirm Reservation</code></td></tr>
+<tr><td>Požadavky</td><td>např. <code>REQ-03</code>, <code>REQ-04</code></td></tr>
+<tr><td>Pravidla / invarianty</td><td>např. <code>BR-02</code></td></tr>
+<tr><td>Baseline</td><td><code>v0.2</code></td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A2. Namapujte hlavní průchod scénáře na kód</h2>
+<p>Vezměte hlavní úspěšný scénář z C02.</p>
+<p>Pro každý <strong>business významný krok</strong> najděte místo, kde jej implementace skutečně realizuje.</p>
+<div class='table-wrap'><table><thead><tr><th>Krok scénáře z C02</th><th>Realizace v kódu</th><th>Doklad</th></tr></thead>
+<tbody>
+<tr><td>přijmout požadavek na potvrzení</td><td><code>ReservationController.confirm()</code></td><td>soubor + metoda</td></tr>
+<tr><td>načíst <code>Reservation</code></td><td>...</td><td>...</td></tr>
+<tr><td>ověřit, že přechod je povolený</td><td>...</td><td>...</td></tr>
+<tr><td>vyhodnotit konflikt</td><td>...</td><td>...</td></tr>
+<tr><td>změnit stav</td><td>...</td><td>...</td></tr>
+<tr><td>uložit výsledek</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p><strong>Do tabulky nedávejte</strong> gettery, frameworkové callbacky ani pomocné utility, pokud nemají význam pro chování scénáře.</p>
+<p>Doklad = konkrétní soubor/třída/metoda, test nebo ověřený runtime výstup.</p>
+<hr>
+<h2>A3. Namapujte jednu důležitou alternativní nebo chybovou větev</h2>
+<p>Vyberte jednu větev stejného scénáře, která je důležitá pro chování systému.</p>
+<p>Například:</p>
+<p><code>conflict exists → confirmation is rejected</code></p>
+<p>Vyplňte:</p>
+<div class='table-wrap'><table><thead><tr><th>Co říká v0.2</th><th>Kde se podmínka zjistí</th><th>Kde se rozhodne výsledek</th><th>Co dostane volající</th></tr></thead>
+<tbody>
+<tr><td>konflikt → odmítnout</td><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Pokud se implementace liší od v0.2, zapište rozdíl jako samostatný nález:</p>
+<div class='table-wrap'><table><thead><tr><th>Specifikace</th><th>Implementace</th><th>Doklad</th></tr></thead>
+<tbody>
+<tr><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A4. Vyberte hlavní části implementace</h2>
+<p>Z kroků A2–A3 vyberte části kódu, které scénář skutečně realizují. Typicky půjde o <strong>3–7 částí</strong>.</p>
+<p>Použijte pokud možno <strong>stejnou úroveň detailu</strong>:</p>
+<ul>
+<li>buď konkrétní třídy, pokud je aplikace malá;</li>
+<li>nebo logické skupiny/moduly, pokud scénář prochází větším počtem tříd.</li>
+</ul>
+<p>Pokud jeden blok sdružuje více tříd, uveďte pod ním, které třídy do něj patří.</p>
+<p>Vyplňte:</p>
+<div class='table-wrap'><table><thead><tr><th>Část implementace</th><th>Typ / obsah</th><th>Role v tomto scénáři</th><th>Doklad</th></tr></thead>
+<tbody>
+<tr><td><code>Reservation API</code></td><td><code>ReservationController</code></td><td>přijme command</td><td>...</td></tr>
+<tr><td><code>Reservation logic</code></td><td><code>ReservationService</code>, <code>Reservation</code></td><td>rozhodne potvrzení</td><td>...</td></tr>
+<tr><td><code>Persistence</code></td><td><code>ReservationRepository</code>, ...</td><td>načte/uloží stav</td><td>...</td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A5. Určete stav, změnu stavu a jedno pravidlo</h2>
+<p>Vyplňte tři samostatné položky.</p>
+<h3>Stav</h3>
+<div class='table-wrap'><table><thead><tr><th>Otázka</th><th>Odpověď</th><th>Doklad</th></tr></thead>
+<tbody>
+<tr><td>Kde je stav <code>Reservation</code> trvale uložen?</td><td>...</td><td>...</td></tr>
+<tr><td>Který kód rozhoduje/provádí přechod použitý ve scénáři?</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<h3>Business pravidlo / invariant</h3>
+<p>Vyberte jedno pravidlo relevantní pro stejný scénář, např. <code>BR-02</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>Otázka</th><th>Odpověď</th><th>Doklad</th></tr></thead>
+<tbody>
+<tr><td>Kde se zjistí podmínka pravidla?</td><td>...</td><td>...</td></tr>
+<tr><td>Kde se podle výsledku rozhodne?</td><td>...</td><td>...</td></tr>
+<tr><td>Kde se provede výsledná změna stavu?</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Pokud stejné rozhodnutí dělá více míst, uveďte všechna.</p>
+<hr>
+<h2>A6. Zapište relevantní závislosti</h2>
+<p>Zapište pouze závislosti, které jsou použité ve zvoleném scénáři nebo jsou nutné pro jeho stav/pravidla.</p>
+<div class='table-wrap'><table><thead><tr><th>Závislost</th><th>Kde se napojuje na váš kód</th><th>Která část zná její technické API</th><th>Doklad</th></tr></thead>
+<tbody>
+<tr><td>databáze</td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td><code>Notification Service</code></td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>IdP</td><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Nevypisujte běžné knihovny frameworku.</p>
+<hr>
+<h2>A7. Nakreslete AS-IS strukturální diagram</h2>
+<p>Diagram má ukázat <strong>současnou realizaci zvoleného scénáře</strong>, ne cílový návrh.</p>
+<h3>Postup</h3>
+<ol>
+<li>Nakreslete obdélník <strong>Application code</strong>.</li>
+<li>Dovnitř vložte <strong>3–7 bloků z A4</strong>.</li>
+<li>Každý blok musí mít:</li>
+</ol>
+<p>   - název;</p>
+<p>   - krátkou roli v tomto scénáři;</p>
+<p>   - pokud jde o skupinu, uveďte pod diagramem konkrétní třídy/moduly, které obsahuje.</p>
+<ol>
+<li>Databázi a externí systémy nakreslete mimo <code>Application code</code>.</li>
+<li>Nakreslete pouze vazby, které jsou pro zvolený scénář skutečně použité.</li>
+<li>Každou důležitou šipku popište slovesem/operací: <code>confirm</code>, <code>load/save Reservation</code>, <code>send notification</code>, <code>validate token</code>, ...</li>
+<li>Směr šipky musí odpovídat skutečnému směru volání nebo závislosti.</li>
+<li>Nemíchejte bez vysvětlení jednu konkrétní třídu s celou vrstvou. Pokud používáte různé úrovně detailu, označte typ bloku (<code>class</code>, <code>module</code>, <code>external system</code>, <code>database</code>).</li>
+</ol>
+<h3>Příklad formy</h3>
+<div class='diagram'><pre>+------------------------- Application code --------------------------+
+|                                                                      |
+|  [Reservation API]                                                   |
+|  role: accepts confirm command                                       |
+|          | confirm(id)                                                |
+|          v                                                            |
+|  [Reservation logic]                                                 |
+|  role: decides confirmation                                          |
+|       | load/save Reservation        | send notification              |
+|       v                              v                                |
+|  [Persistence]                 [Notification integration]            |
+|                                                                      |
++----------------------------------------------------------------------+
+        | read/write                         | HTTP/API
+        v                                    v
+ [Reservation DB]                  [Notification Service]</pre></div>
+<p>Pod diagramem můžete doplnit:</p>
+<div class='diagram'><pre>Reservation API:
+- ReservationController
+
+Reservation logic:
+- ReservationService
+- Reservation
+
+Persistence:
+- ReservationRepository
+- SqlReservationRepository</pre></div>
+<hr>
+<h2>A8. Formulujte jednu otázku pro další C03</h2>
+<p>Otázka musí vycházet z konkrétního nálezu v A2–A7.</p>
+<p>Použijte:</p>
+<div class='table-wrap'><table><thead><tr><th>Položka</th><th>Obsah</th></tr></thead>
+<tbody>
+<tr><td>Otázka</td><td>...</td></tr>
+<tr><td>Doklad</td><td>...</td></tr>
+<tr><td>Proč je důležitá</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Příklad:</p>
+<div class='table-wrap'><table><thead><tr><th>Položka</th><th>Obsah</th></tr></thead>
+<tbody>
+<tr><td>Otázka</td><td>Mohou dva souběžné confirm requesty oba projít kontrolou konfliktu?</td></tr>
+<tr><td>Doklad</td><td><code>findConflicts()</code> a <code>save()</code> jsou oddělené operace v <code>ReservationService.confirm()</code></td></tr>
+<tr><td>Proč je důležitá</td><td><code>BR-02</code> musí platit i při souběžném potvrzování</td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A9. AI</h2>
+<p>AI můžete použít pro navigaci v repozitáři, návrh trace nebo první verzi diagramu.</p>
+<p>Do výsledku ale zapisujte pouze tvrzení, která jste ověřili v kódu, testu nebo runtime.</p>
+<hr>
+<h2>Hotovo je, když</h2>
+<ul class='checks'>
+<li>hlavní kroky scénáře jsou namapované na konkrétní implementaci;</li>
+<li>jedna důležitá alternative/failure větev je dohledaná;</li>
+<li>případný rozdíl v0.2 ↔ implementace je zaznamenaný;</li>
+<li>hlavní části realizující scénář jsou identifikované na srovnatelné úrovni detailu;</li>
+<li>je jasné, kde je stav uložen, kde se mění a kde se vynucuje jedno pravidlo;</li>
+<li>relevantní externí/perzistenční závislosti jsou dohledané;</li>
+<li>AS-IS diagram odpovídá skutečnému kódu;</li>
+<li>existuje jedna evidencí podložená otázka pro další C03.</li>
+</ul>
+<hr></section><section class="en"><h1>EN</h1>
+<h2>SWI C03 — Part A: Map the Current Realization of One Scenario</h2>
+<h3>Tuesday early start / first part of the common C03</h3>
+<h2>Goal</h2>
+<p>Understand how the current implementation actually realizes one C02 scenario and prepare a verified AS-IS basis for architecture design.</p>
+<h2>What you will learn</h2>
+<ul>
+<li>trace a scenario from the specification into concrete code;</li>
+<li>distinguish business-significant steps from technical implementation details;</li>
+<li>identify the parts of the system that realize the scenario;</li>
+<li>determine where state is stored and where state changes are decided;</li>
+<li>locate where a business rule / invariant is enforced in the implementation;</li>
+<li>identify relevant external and persistence dependencies;</li>
+<li>create a simple AS-IS structural view based on the real code;</li>
+<li>formulate a concrete architecture question supported by evidence.</li>
+</ul>
+<p>Start from the <strong>Specification Baseline v0.2</strong> and the running application from C02.</p>
+<p>Use one scenario already present in v0.2. <code>Confirm Reservation</code> is recommended; if approval is more architecturally relevant for your team, use the corresponding approval scenario.</p>
+<h3>Part A output</h3>
+<p>Add to <code>docs/architecture-and-decisions.md</code>:</p>
+<ol>
+<li>reference to the selected scenario and related requirements/rules;</li>
+<li>mapping of the main scenario steps to concrete code;</li>
+<li>mapping of one important alternative/failure path;</li>
+<li>the main implementation elements that realize the scenario;</li>
+<li>where state is stored, who decides/executes the state change, and where one important rule is enforced;</li>
+<li>relevant external/persistence dependencies;</li>
+<li>one <strong>AS-IS structural diagram</strong>;</li>
+<li>one concrete question to carry into the architecture design.</li>
+</ol>
+<hr>
+<h2>A1. Identify the scenario</h2>
+<p>Record only the reference:</p>
+<div class='table-wrap'><table><thead><tr><th>Item</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Scenario / operation</td><td>e.g. <code>Confirm Reservation</code></td></tr>
+<tr><td>Requirements</td><td>e.g. <code>REQ-03</code>, <code>REQ-04</code></td></tr>
+<tr><td>Rules / invariants</td><td>e.g. <code>BR-02</code></td></tr>
+<tr><td>Baseline</td><td><code>v0.2</code></td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A2. Map the main scenario path to code</h2>
+<p>Take the main success scenario from C02.</p>
+<p>For each <strong>business-significant step</strong>, find where the current implementation realizes it.</p>
+<div class='table-wrap'><table><thead><tr><th>C02 scenario step</th><th>Implementation location</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>accept confirmation request</td><td><code>ReservationController.confirm()</code></td><td>file + method</td></tr>
+<tr><td>load <code>Reservation</code></td><td>...</td><td>...</td></tr>
+<tr><td>check that transition is allowed</td><td>...</td><td>...</td></tr>
+<tr><td>evaluate conflict</td><td>...</td><td>...</td></tr>
+<tr><td>change state</td><td>...</td><td>...</td></tr>
+<tr><td>persist result</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Do <strong>not</strong> include getters, framework callbacks, or helper utilities unless they matter to the scenario behaviour.</p>
+<p>Evidence = concrete file/class/method, test, or verified runtime output.</p>
+<hr>
+<h2>A3. Map one important alternative/failure path</h2>
+<p>Select one important branch of the same C02 scenario.</p>
+<p>Example:</p>
+<p><code>conflict exists → confirmation is rejected</code></p>
+<p>Fill in:</p>
+<div class='table-wrap'><table><thead><tr><th>v0.2 behaviour</th><th>Where condition is detected</th><th>Where outcome is decided</th><th>What caller receives</th></tr></thead>
+<tbody>
+<tr><td>conflict → reject</td><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>If implementation differs from v0.2, record the mismatch:</p>
+<div class='table-wrap'><table><thead><tr><th>Specification</th><th>Implementation</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A4. Select the main implementation elements</h2>
+<p>From A2–A3 select the code elements that actually realize the scenario. Typically use <strong>3–7 elements</strong>.</p>
+<p>Use a <strong>consistent level of detail</strong> where possible:</p>
+<ul>
+<li>concrete classes if the application is small;</li>
+<li>logical groups/modules if the scenario crosses many classes.</li>
+</ul>
+<p>If one block groups multiple classes, list the contained classes below the diagram.</p>
+<p>Fill in:</p>
+<div class='table-wrap'><table><thead><tr><th>Implementation element</th><th>Type / contents</th><th>Role in this scenario</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td><code>Reservation API</code></td><td><code>ReservationController</code></td><td>accepts command</td><td>...</td></tr>
+<tr><td><code>Reservation logic</code></td><td><code>ReservationService</code>, <code>Reservation</code></td><td>decides confirmation</td><td>...</td></tr>
+<tr><td><code>Persistence</code></td><td><code>ReservationRepository</code>, ...</td><td>loads/persists state</td><td>...</td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A5. Identify state, state change, and one rule</h2>
+<p>Fill in three separate items.</p>
+<h3>State</h3>
+<div class='table-wrap'><table><thead><tr><th>Question</th><th>Answer</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Where is <code>Reservation</code> state persisted?</td><td>...</td><td>...</td></tr>
+<tr><td>Which code decides/executes the transition used in the scenario?</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<h3>Business rule / invariant</h3>
+<p>Choose one rule relevant to the same scenario, e.g. <code>BR-02</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>Question</th><th>Answer</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Where is the rule condition detected?</td><td>...</td><td>...</td></tr>
+<tr><td>Where is the outcome decided?</td><td>...</td><td>...</td></tr>
+<tr><td>Where is the resulting state change performed?</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>If the same decision is made in multiple places, list all of them.</p>
+<hr>
+<h2>A6. Record relevant dependencies</h2>
+<p>Include only dependencies used by the selected scenario or required for its state/rules.</p>
+<div class='table-wrap'><table><thead><tr><th>Dependency</th><th>Where it connects to your code</th><th>Which part knows its technical API</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>database</td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td><code>Notification Service</code></td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>IdP</td><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Do not list ordinary framework libraries.</p>
+<hr>
+<h2>A7. Draw the AS-IS structural diagram</h2>
+<p>The diagram shows the <strong>current realization of the selected scenario</strong>, not the target design.</p>
+<h3>Procedure</h3>
+<ol>
+<li>Draw an <strong>Application code</strong> boundary.</li>
+<li>Place <strong>3–7 elements from A4</strong> inside it.</li>
+<li>Each block must contain:</li>
+</ol>
+<p>   - name;</p>
+<p>   - short role in this scenario;</p>
+<p>   - if it is a group, list the concrete classes/modules below the diagram.</p>
+<ol>
+<li>Draw the database and external systems outside <code>Application code</code>.</li>
+<li>Draw only dependencies/calls actually used by the selected scenario.</li>
+<li>Label every important arrow with an operation/verb: <code>confirm</code>, <code>load/save Reservation</code>, <code>send notification</code>, <code>validate token</code>, ...</li>
+<li>Arrow direction must match the real call/dependency direction.</li>
+<li>Do not mix a single class with an entire layer without explanation. If different abstraction levels are necessary, label the block type (<code>class</code>, <code>module</code>, <code>external system</code>, <code>database</code>).</li>
+</ol>
+<h3>Example form</h3>
+<div class='diagram'><pre>+------------------------- Application code --------------------------+
+|                                                                      |
+|  [Reservation API]                                                   |
+|  role: accepts confirm command                                       |
+|          | confirm(id)                                                |
+|          v                                                            |
+|  [Reservation logic]                                                 |
+|  role: decides confirmation                                          |
+|       | load/save Reservation        | send notification              |
+|       v                              v                                |
+|  [Persistence]                 [Notification integration]            |
+|                                                                      |
++----------------------------------------------------------------------+
+        | read/write                         | HTTP/API
+        v                                    v
+ [Reservation DB]                  [Notification Service]</pre></div>
+<p>Below the diagram you may add:</p>
+<div class='diagram'><pre>Reservation API:
+- ReservationController
+
+Reservation logic:
+- ReservationService
+- Reservation
+
+Persistence:
+- ReservationRepository
+- SqlReservationRepository</pre></div>
+<hr>
+<h2>A8. Formulate one question for the next C03 step</h2>
+<p>The question must come from a concrete finding in A2–A7.</p>
+<p>Use:</p>
+<div class='table-wrap'><table><thead><tr><th>Item</th><th>Content</th></tr></thead>
+<tbody>
+<tr><td>Question</td><td>...</td></tr>
+<tr><td>Evidence</td><td>...</td></tr>
+<tr><td>Why it matters</td><td>...</td></tr>
+</tbody>
+</table></div>
+<p>Example:</p>
+<div class='table-wrap'><table><thead><tr><th>Item</th><th>Content</th></tr></thead>
+<tbody>
+<tr><td>Question</td><td>Can two concurrent confirm requests both pass the conflict check?</td></tr>
+<tr><td>Evidence</td><td><code>findConflicts()</code> and <code>save()</code> are separate operations in <code>ReservationService.confirm()</code></td></tr>
+<tr><td>Why it matters</td><td><code>BR-02</code> must remain true under concurrent confirmation</td></tr>
+</tbody>
+</table></div>
+<hr>
+<h2>A9. AI</h2>
+<p>You may use AI to navigate the repository, propose a trace, or draft the first diagram.</p>
+<p>Only include claims that you verified in code, tests, or runtime.</p>
+<hr>
+<h2>Done when</h2>
+<ul class='checks'>
+<li>the main scenario steps are mapped to concrete implementation;</li>
+<li>one important alternative/failure path is traced;</li>
+<li>any v0.2 ↔ implementation mismatch is recorded;</li>
+<li>main scenario-realizing elements are identified at a comparable abstraction level;</li>
+<li>state storage, state change, and one rule-enforcement location are explicit;</li>
+<li>relevant external/persistence dependencies are identified;</li>
+<li>the AS-IS diagram matches the real code;</li>
+<li>one evidence-backed question is ready for the next C03 step.</li>
+</ul></section></main></body></html>
