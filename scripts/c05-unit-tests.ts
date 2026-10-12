@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { ApiError } from "../src/lib/api-error";
 import {
   assertCanConfirm,
   assertWithinQuota,
   initialStatus,
   intervalsOverlap,
+  overlapBounds,
   planCancel,
   planDecision,
+  ReservationRuleViolation,
+  type ReservationRuleCode,
 } from "../src/lib/reservation-policy";
 
 const at = (hour: number) => new Date(Date.UTC(2026, 9, 20, hour));
@@ -14,10 +16,10 @@ const owner = { id: "u1", role: "USER" as const };
 const stranger = { id: "u2", role: "USER" as const };
 const admin = { id: "a1", role: "ADMIN" as const };
 
-function expectApiError(work: () => unknown, status: number, pattern: RegExp) {
+function expectViolation(work: () => unknown, code: ReservationRuleCode, pattern: RegExp) {
   assert.throws(work, (error) => {
-    assert.ok(error instanceof ApiError, "expected ApiError");
-    assert.equal(error.status, status);
+    assert.ok(error instanceof ReservationRuleViolation, "expected ReservationRuleViolation");
+    assert.equal(error.code, code);
     assert.match(error.message, pattern);
     return true;
   });
@@ -35,50 +37,54 @@ const cases: Array<[string, () => void]> = [
   ["overlap: containment overlaps", () => {
     assert.equal(intervalsOverlap({ startTime: at(8), endTime: at(14) }, { startTime: at(10), endTime: at(11) }), true);
   }],
+  ["overlap: query bounds are strict (startTime < end, endTime > start)", () => {
+    // reservation-service builds the CONFIRMED-overlap query from these bounds with lt/gt.
+    assert.deepEqual(overlapBounds({ startTime: at(10), endTime: at(11) }), { startsBefore: at(11), endsAfter: at(10) });
+  }],
 
-  // DD-T2 — REQ-09: initial state
+  // DD-T2 — v0.2 OP-01 change: initial state
   ["initialStatus: approval agent starts PENDING_APPROVAL, others CONFIRMED", () => {
     assert.equal(initialStatus({ requiresApproval: true }), "PENDING_APPROVAL");
     assert.equal(initialStatus({ requiresApproval: false }), "CONFIRMED");
   }],
 
   // DD-T3 — BR-04: quota
-  ["quota: below limit passes, at limit fails with 403", () => {
+  ["quota: below limit passes, at limit fails (QUOTA_EXCEEDED)", () => {
     assert.doesNotThrow(() => assertWithinQuota(1, 2));
-    expectApiError(() => assertWithinQuota(2, 2), 403, /maximum is 2/);
+    expectViolation(() => assertWithinQuota(2, 2), "QUOTA_EXCEEDED", /maximum is 2/);
   }],
 
-  // DD-T4 — BR-03 / REQ-12: cancel transitions
+  // DD-T4 — REQ-08 / BR-03 / REQ-12: cancel transitions
   ["cancel: owner cancels CONFIRMED before startTime", () => {
     assert.equal(planCancel({ userId: "u1", status: "CONFIRMED", startTime: at(10) }, owner, at(9)), "CANCEL");
   }],
-  ["cancel: cancellation exactly at startTime is rejected (409)", () => {
-    expectApiError(
+  ["cancel: cancellation exactly at startTime is rejected (AFTER_START)", () => {
+    expectViolation(
       () => planCancel({ userId: "u1", status: "CONFIRMED", startTime: at(10) }, owner, at(10)),
-      409,
+      "AFTER_START",
       /at or after startTime/,
     );
   }],
   ["cancel: repeated cancel is idempotent", () => {
     assert.equal(planCancel({ userId: "u1", status: "CANCELLED", startTime: at(10) }, owner, at(11)), "ALREADY_CANCELLED");
   }],
-  ["cancel: stranger gets 403, admin may cancel", () => {
+  ["cancel: stranger is refused (NOT_OWNER), admin may cancel", () => {
     const reservation = { userId: "u1", status: "CONFIRMED" as const, startTime: at(10) };
-    expectApiError(() => planCancel(reservation, stranger, at(9)), 403, /not authorized/);
+    expectViolation(() => planCancel(reservation, stranger, at(9)), "NOT_OWNER", /not authorized/);
     assert.equal(planCancel(reservation, admin, at(9)), "CANCEL");
   }],
   ["cancel: stale PENDING_APPROVAL at startTime expires instead of failing", () => {
     assert.equal(planCancel({ userId: "u1", status: "PENDING_APPROVAL", startTime: at(10) }, owner, at(10)), "EXPIRE");
   }],
-  ["cancel: terminal states REJECTED/EXPIRED cannot be cancelled (409)", () => {
+  ["cancel: terminal states REJECTED/EXPIRED cannot be cancelled (INVALID_STATE)", () => {
     for (const status of ["REJECTED", "EXPIRED"] as const) {
-      expectApiError(() => planCancel({ userId: "u1", status, startTime: at(10) }, owner, at(9)), 409, /cannot be cancelled/);
+      expectViolation(() => planCancel({ userId: "u1", status, startTime: at(10) }, owner, at(9)), "INVALID_STATE", /cannot be cancelled/);
     }
   }],
 
-  // DD-T5 — REQ-10 / REQ-11 / REQ-12: decision planning
-  ["decision: only PENDING_APPROVAL can be decided (409)", () => {
-    expectApiError(() => planDecision({ status: "CONFIRMED", startTime: at(10) }, "APPROVE", at(9)), 409, /not PENDING_APPROVAL/);
+  // DD-T5 — REQ-09 / REQ-11 / REQ-12: decision planning
+  ["decision: only PENDING_APPROVAL can be decided (INVALID_STATE)", () => {
+    expectViolation(() => planDecision({ status: "CONFIRMED", startTime: at(10) }, "APPROVE", at(9)), "INVALID_STATE", /not PENDING_APPROVAL/);
   }],
   ["decision: at startTime pending expires regardless of decision", () => {
     assert.equal(planDecision({ status: "PENDING_APPROVAL", startTime: at(10) }, "APPROVE", at(10)), "EXPIRE");
@@ -89,12 +95,12 @@ const cases: Array<[string, () => void]> = [
     assert.equal(planDecision({ status: "PENDING_APPROVAL", startTime: at(10) }, "APPROVE", at(9)), "CONFIRM_CHECKS");
   }],
 
-  // DD-T6 — BR-02 / BR-05: confirm preconditions
-  ["confirm: inactive agent and later overlap both yield 409; clean state passes", () => {
+  // DD-T6 — REQ-09 / BR-02 / BR-05: confirm preconditions
+  ["confirm: inactive agent and later overlap are refused; activity is checked first", () => {
     assert.doesNotThrow(() => assertCanConfirm(true, false));
-    expectApiError(() => assertCanConfirm(false, false), 409, /inactive/);
-    expectApiError(() => assertCanConfirm(true, true), 409, /no longer available/);
-    expectApiError(() => assertCanConfirm(false, true), 409, /inactive/);
+    expectViolation(() => assertCanConfirm(false, false), "AGENT_INACTIVE", /inactive/);
+    expectViolation(() => assertCanConfirm(true, true), "AGENT_UNAVAILABLE", /no longer available/);
+    expectViolation(() => assertCanConfirm(false, true), "AGENT_INACTIVE", /inactive/);
   }],
 ];
 

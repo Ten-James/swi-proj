@@ -1,17 +1,16 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { ApiError } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
 import {
   assertCanConfirm,
   assertWithinQuota,
   initialStatus,
+  overlapBounds,
   planCancel,
   planDecision,
+  type PolicyActor,
+  type TimeInterval,
 } from "@/lib/reservation-policy";
-
-export interface ReservationActor {
-  id: string;
-  role: "USER" | "ADMIN";
-}
 
 export interface CreateReservationInput {
   userId: string;
@@ -23,8 +22,11 @@ export interface CreateReservationInput {
 
 export type ReservationDecision = "APPROVE" | "REJECT";
 
-async function expirePendingReservations(now: Date, userId?: string) {
-  await prisma.reservation.updateMany({
+type ReservationClient = Prisma.TransactionClient;
+
+/** Persists REQ-12 in bulk; `startTime <= now` mirrors `isPendingExpired`. */
+async function expirePendingReservations(client: ReservationClient, now: Date, userId?: string) {
+  await client.reservation.updateMany({
     where: {
       ...(userId ? { userId } : {}),
       status: "PENDING_APPROVAL",
@@ -34,8 +36,28 @@ async function expirePendingReservations(now: Date, userId?: string) {
   });
 }
 
+/** BR-02: first CONFIRMED Reservation of the Agent overlapping `interval` (BR-01 bounds). */
+function findConfirmedOverlap(
+  client: ReservationClient,
+  agentId: string,
+  interval: TimeInterval,
+  excludeReservationId?: string,
+) {
+  const bounds = overlapBounds(interval);
+  return client.reservation.findFirst({
+    where: {
+      ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
+      agentId,
+      status: "CONFIRMED",
+      startTime: { lt: bounds.startsBefore },
+      endTime: { gt: bounds.endsAfter },
+    },
+    select: { id: true },
+  });
+}
+
 export async function listPublicReservations(now = new Date()) {
-  await expirePendingReservations(now);
+  await expirePendingReservations(prisma, now);
   return prisma.reservation.findMany({
     orderBy: [{ agent: { name: "asc" } }, { startTime: "asc" }],
     select: {
@@ -51,7 +73,7 @@ export async function listPublicReservations(now = new Date()) {
 }
 
 export async function listUserReservations(userId: string, now = new Date()) {
-  await expirePendingReservations(now, userId);
+  await expirePendingReservations(prisma, now, userId);
   return prisma.reservation.findMany({
     where: { userId },
     orderBy: { startTime: "asc" },
@@ -69,7 +91,7 @@ export async function listUserReservations(userId: string, now = new Date()) {
 }
 
 export async function listAdminReservations(now = new Date()) {
-  await expirePendingReservations(now);
+  await expirePendingReservations(prisma, now);
   return prisma.reservation.findMany({
     orderBy: [{ status: "asc" }, { startTime: "asc" }],
     select: {
@@ -93,40 +115,21 @@ export async function checkAgentAvailability(
   if (!agent) throw new ApiError(404, "Agent not found");
   if (!agent.isActive) return "UNAVAILABLE" as const;
 
-  const overlap = await prisma.reservation.findFirst({
-    where: {
-      agentId,
-      status: "CONFIRMED",
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-    },
-    select: { id: true },
-  });
+  const overlap = await findConfirmedOverlap(prisma, agentId, { startTime, endTime });
 
   return overlap ? ("UNAVAILABLE" as const) : ("AVAILABLE" as const);
 }
 
 export async function createReservation(input: CreateReservationInput, now = new Date()) {
   return prisma.$transaction(async (tx) => {
-    await tx.reservation.updateMany({
-      where: { status: "PENDING_APPROVAL", startTime: { lte: now } },
-      data: { status: "EXPIRED" },
-    });
+    await expirePendingReservations(tx, now);
 
     const agent = await tx.agent.findUnique({ where: { id: input.agentId } });
     if (!agent || !agent.isActive) {
       throw new ApiError(404, "Agent not found or inactive");
     }
 
-    const overlapping = await tx.reservation.findFirst({
-      where: {
-        agentId: input.agentId,
-        status: "CONFIRMED",
-        startTime: { lt: input.endTime },
-        endTime: { gt: input.startTime },
-      },
-      select: { id: true },
-    });
+    const overlapping = await findConfirmedOverlap(tx, input.agentId, input);
     if (overlapping) {
       throw new ApiError(409, "Agent is not free in the requested time window");
     }
@@ -158,7 +161,7 @@ export async function createReservation(input: CreateReservationInput, now = new
 
 export async function cancelReservation(
   reservationId: string,
-  actor: ReservationActor,
+  actor: PolicyActor,
   now = new Date(),
 ) {
   return prisma.$transaction(async (tx) => {
@@ -212,16 +215,7 @@ export async function decideReservation(
       return { reservation: rejected, expired: false };
     }
 
-    const overlap = await tx.reservation.findFirst({
-      where: {
-        id: { not: reservationId },
-        agentId: reservation.agentId,
-        status: "CONFIRMED",
-        startTime: { lt: reservation.endTime },
-        endTime: { gt: reservation.startTime },
-      },
-      select: { id: true },
-    });
+    const overlap = await findConfirmedOverlap(tx, reservation.agentId, reservation, reservationId);
     assertCanConfirm(reservation.agent.isActive, overlap !== null);
 
     const confirmed = await tx.reservation.update({
