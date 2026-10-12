@@ -130,3 +130,38 @@ skutečný průchod API → SQLite → opětovné načtení stejné Reservation.
   závislosti.
 - Reservation Service je stále přímo svázaný s Prisma adaptérem.
 - Přesný commit/tag doplní tým až při vytvoření schváleného Git baseline.
+
+## C05 DD Verification Evidence
+
+Vybraná jednotka: pravidla životního cyklu Reservation
+([detailed design](c05/detailed-design.md)).
+
+Tests derived from DD:
+
+- `scripts/c05-unit-tests.ts` – 15 unit testů: překryv intervalů (`BR-01`),
+  počáteční stav (`REQ-09`), limit (`BR-04`), větve zrušení (`BR-03`, `REQ-12`),
+  plán rozhodnutí (`REQ-10`–`REQ-12`) a podmínky potvrzení (`BR-02`, `BR-05`).
+- Collaboration: stávající C02 scénáře přes HTTP + SQLite.
+
+Unit/component tests executed:
+
+| Kontrola | Výsledek |
+|---|---|
+| `npm run test:c05` | **NESPUŠTĚNO** – testy jsou připraveny, spuštění čeká na tým |
+| `npm run test:architecture` | **NESPUŠTĚNO** – rozšířeno o pravidlo čistoty policy |
+| `npm run test:c02` | **NESPUŠTĚNO** – nutné pro potvrzení beze změny chování |
+
+Design ↔ implementation mismatch:
+Žádný známý. Počítání aktivních rezervací pro `BR-04` zůstává v service jako I/O,
+v policy je jen samotné pravidlo.
+
+Resolution:
+Ponecháno v souladu s DD (`keep`); po spuštění testů doplnit výsledky.
+
+Remaining design risk:
+
+- Policy a service jsou propojeny sekvenčně; správnost pod souběhem stále závisí
+  na transakci v service, kterou unit testy nepokrývají.
+- Pořadí kontrol je zachováno ručním porovnáním, dokud neproběhne C02 sada.
+
+Commit/tag: doplní tým po spuštění testů.

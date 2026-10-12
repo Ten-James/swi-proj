@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "test:api-persistence": "tsx scripts/api-persistence-spike.ts",
     "test:c02": "tsx scripts/c02-verification.ts",
-    "test:architecture": "tsx scripts/architecture-check.ts"
+    "test:architecture": "tsx scripts/architecture-check.ts",
+    "test:c05": "tsx scripts/c05-unit-tests.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",

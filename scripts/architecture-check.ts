@@ -39,8 +39,15 @@ async function main() {
 
   const ownerSource = await readFile(lifecycleOwner, "utf8");
   assert.match(ownerSource, /prisma\.\$transaction\s*\(/, "Lifecycle owner must enforce transaction boundaries");
+  const policySource = await readFile(path.join(sourceRoot, "lib", "reservation-policy.ts"), "utf8");
+  assert.doesNotMatch(
+    policySource,
+    /from\s+["'][^"']*(?:prisma|reservation-service)[^"']*["']/,
+    "C05: reservation-policy must stay pure (no Prisma or service dependency)",
+  );
   console.log("C03 architecture check PASSED");
   console.log("Rule: only src/lib/reservation-service.ts may persist Reservation lifecycle changes.");
+  console.log("Rule (C05): src/lib/reservation-policy.ts stays free of persistence dependencies.");
 }
 
 main().catch((error) => {

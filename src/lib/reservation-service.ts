@@ -1,5 +1,12 @@
 import { ApiError } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
+import {
+  assertCanConfirm,
+  assertWithinQuota,
+  initialStatus,
+  planCancel,
+  planDecision,
+} from "@/lib/reservation-policy";
 
 export interface ReservationActor {
   id: string;
@@ -134,12 +141,7 @@ export async function createReservation(input: CreateReservationInput, now = new
         endTime: { gt: now },
       },
     });
-    if (activeReservationCount >= user.maxReservations) {
-      throw new ApiError(
-        403,
-        `User already has ${activeReservationCount} active reservation(s), the maximum is ${user.maxReservations}`,
-      );
-    }
+    assertWithinQuota(activeReservationCount, user.maxReservations);
 
     return tx.reservation.create({
       data: {
@@ -148,7 +150,7 @@ export async function createReservation(input: CreateReservationInput, now = new
         startTime: input.startTime,
         endTime: input.endTime,
         note: input.note,
-        status: agent.requiresApproval ? "PENDING_APPROVAL" : "CONFIRMED",
+        status: initialStatus(agent),
       },
     });
   });
@@ -163,24 +165,14 @@ export async function cancelReservation(
     const reservation = await tx.reservation.findUnique({ where: { id: reservationId } });
     if (!reservation) throw new ApiError(404, "Reservation not found");
 
-    if (actor.id !== reservation.userId && actor.role !== "ADMIN") {
-      throw new ApiError(403, "Actor is not authorized to cancel this Reservation");
-    }
-    if (reservation.status === "CANCELLED") {
-      return { reservation, expired: false };
-    }
-    if (reservation.status === "PENDING_APPROVAL" && now >= reservation.startTime) {
+    const plan = planCancel(reservation, actor, now);
+    if (plan === "ALREADY_CANCELLED") return { reservation, expired: false };
+    if (plan === "EXPIRE") {
       const expired = await tx.reservation.update({
         where: { id: reservationId },
         data: { status: "EXPIRED" },
       });
       return { reservation: expired, expired: true };
-    }
-    if (reservation.status !== "CONFIRMED" && reservation.status !== "PENDING_APPROVAL") {
-      throw new ApiError(409, `Reservation in state ${reservation.status} cannot be cancelled`);
-    }
-    if (now >= reservation.startTime) {
-      throw new ApiError(409, "Reservation cannot be cancelled at or after startTime");
     }
 
     const cancelled = await tx.reservation.update({
@@ -202,11 +194,9 @@ export async function decideReservation(
       include: { agent: true },
     });
     if (!reservation) throw new ApiError(404, "Reservation not found");
-    if (reservation.status !== "PENDING_APPROVAL") {
-      throw new ApiError(409, `Reservation is ${reservation.status}, not PENDING_APPROVAL`);
-    }
 
-    if (now >= reservation.startTime) {
+    const plan = planDecision(reservation, decision, now);
+    if (plan === "EXPIRE") {
       const expired = await tx.reservation.update({
         where: { id: reservationId },
         data: { status: "EXPIRED" },
@@ -214,16 +204,12 @@ export async function decideReservation(
       return { reservation: expired, expired: true };
     }
 
-    if (decision === "REJECT") {
+    if (plan === "REJECT") {
       const rejected = await tx.reservation.update({
         where: { id: reservationId },
         data: { status: "REJECTED" },
       });
       return { reservation: rejected, expired: false };
-    }
-
-    if (!reservation.agent.isActive) {
-      throw new ApiError(409, "Agent is inactive; approval rejected");
     }
 
     const overlap = await tx.reservation.findFirst({
@@ -236,9 +222,7 @@ export async function decideReservation(
       },
       select: { id: true },
     });
-    if (overlap) {
-      throw new ApiError(409, "Agent is no longer available; approval rejected");
-    }
+    assertCanConfirm(reservation.agent.isActive, overlap !== null);
 
     const confirmed = await tx.reservation.update({
       where: { id: reservationId },
