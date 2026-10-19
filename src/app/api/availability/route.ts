@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api-error-response";
+import { INVALID_RANGE, parseInterval } from "@/lib/request-body";
 import { checkAgentAvailability } from "@/lib/reservation-service";
 
 export async function GET(request: Request) {
@@ -15,14 +16,13 @@ export async function GET(request: Request) {
     );
   }
 
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
-    return NextResponse.json({ error: "Invalid time range" }, { status: 400 });
+  const interval = parseInterval(startTime, endTime);
+  if (!interval) {
+    return NextResponse.json({ error: INVALID_RANGE }, { status: 400 });
   }
 
   try {
-    const availability = await checkAgentAvailability(agentId, start, end);
+    const availability = await checkAgentAvailability(agentId, interval.startTime, interval.endTime);
     return NextResponse.json({ agentId, availability });
   } catch (error) {
     return apiErrorResponse(error);

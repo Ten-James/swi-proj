@@ -17,4 +17,4 @@
 - [x] Relevant C02 behavior verification passes after the refactor.
 - [x] A repeatable architecture conformance check passes.
 - [x] C03 evidence is recorded.
-- [ ] Exact application commit/tag is recorded.
+- [x] Exact application commit/tag is recorded (`4669362`, tag `c03-architecture`).

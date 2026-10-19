@@ -93,4 +93,4 @@ Approval expires when `currentTime >= Reservation.startTime`.
 
 ## Application commit / tag
 
-TBD — record after the implementation is committed by the team.
+`b107a9d` (merge PR #9), tag `c02-baseline-v0.2`.

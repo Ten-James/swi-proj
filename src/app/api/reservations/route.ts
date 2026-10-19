@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api-error-response";
 import { getCurrentUser } from "@/lib/auth";
-import { optionalString, readJsonObject } from "@/lib/request-body";
+import { INVALID_RANGE, optionalString, parseInterval, readJsonObject } from "@/lib/request-body";
 import { createReservation, listPublicReservations } from "@/lib/reservation-service";
+
+const MAX_NOTE_LENGTH = 500;
 
 export async function GET() {
   return NextResponse.json(await listPublicReservations());
@@ -30,18 +32,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
-    return NextResponse.json({ error: "Invalid time range" }, { status: 400 });
+  const interval = parseInterval(startTime, endTime);
+  if (!interval) {
+    return NextResponse.json({ error: INVALID_RANGE }, { status: 400 });
+  }
+  if (note !== undefined && note.length > MAX_NOTE_LENGTH) {
+    return NextResponse.json(
+      { error: `note must have at most ${MAX_NOTE_LENGTH} characters` },
+      { status: 400 },
+    );
   }
 
   try {
     const reservation = await createReservation({
       userId: currentUser.id,
       agentId,
-      startTime: start,
-      endTime: end,
+      ...interval,
       note,
     });
     return NextResponse.json(

@@ -109,15 +109,18 @@ export default function ReservationApp({ user }: { user: SessionUser | null }) {
     const min = Math.min(...starts);
     const max = Math.max(...ends);
     const span = Math.max(max - min, 60_000);
-    const grouped = agents
-      .map((agent) => ({
-        agent,
-        reservations: reservations.filter((reservation) => reservation.agent.id === agent.id),
-      }))
-      .filter((group) => group.reservations.length > 0);
+    // Group by the Reservation's own Agent: /api/agents lists only active Agents,
+    // but the overview must also show Reservations of deactivated ones.
+    const byAgent = new Map<string, { agent: Reservation["agent"]; reservations: Reservation[] }>();
+    for (const reservation of reservations) {
+      const group = byAgent.get(reservation.agent.id);
+      if (group) group.reservations.push(reservation);
+      else byAgent.set(reservation.agent.id, { agent: reservation.agent, reservations: [reservation] });
+    }
+    const grouped = [...byAgent.values()];
     const ticks = Array.from({ length: 5 }, (_, index) => min + (span * index) / 4);
     return { min, span, grouped, ticks };
-  }, [agents, reservations]);
+  }, [reservations]);
 
   function resetFeedback() {
     setError(null);

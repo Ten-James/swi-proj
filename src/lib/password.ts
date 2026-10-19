@@ -20,3 +20,12 @@ export async function verifyPassword(password: string, storedHash: string) {
   const actual = (await scrypt(password, salt, KEY_LENGTH)) as Buffer;
   return timingSafeEqual(actual, expected);
 }
+
+let dummyHash: Promise<string> | undefined;
+
+/** Spends the same scrypt work as a real check so unknown emails are not faster to reject. */
+export async function verifyAgainstDummy(password: string) {
+  dummyHash ??= hashPassword("dummy-password-for-timing");
+  await verifyPassword(password, await dummyHash);
+  return false;
+}

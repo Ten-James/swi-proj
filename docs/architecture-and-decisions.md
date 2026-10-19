@@ -34,9 +34,10 @@ transakce, čas), `api-error-response` (doménový kód → HTTP), `request-body
 (validace payloadu). → [§ 3](c05/detailed-design.md#3-struktura-datastate-a-vlastnictví)
 
 **Key interface(s) / contract(s):** `ReservationPolicy` – `overlapBounds`,
-`planCancel`, `planDecision`, `assertCanConfirm`, `assertWithinQuota`; selhání
-`ReservationRuleViolation` s kódy `NOT_OWNER`, `QUOTA_EXCEEDED`,
-`INVALID_STATE`, `AFTER_START`, `AGENT_INACTIVE`, `AGENT_UNAVAILABLE`.
+`planCancel`, `planDecision`, `assertCanConfirm`, `assertNoConfirmedOverlap`,
+`assertStartsInFuture`, `assertWithinQuota`; selhání `ReservationRuleViolation`
+s kódy `NOT_OWNER`, `QUOTA_EXCEEDED`, `INVALID_STATE`, `AFTER_START`,
+`START_IN_PAST`, `AGENT_INACTIVE`, `AGENT_UNAVAILABLE`.
 → [§ 4](c05/detailed-design.md#4-rozhraní-a-kontrakty)
 
 **Focused structural view:** UML class diagram (6 prvků).
@@ -54,7 +55,8 @@ transakce, čas), `api-error-response` (doménový kód → HTTP), `request-body
 Decision. → [§ 8](c05/detailed-design.md#8-algoritmus--rozhodovací-logika)
 
 **DD decisions intentionally left to code:** tvar Prisma dotazů, hromadná
-expirace, izolace transakce, texty chyb, kontroly Agenta/překryvu při Create.
+expirace, izolace transakce, texty chyb, kontrola neznámého/neaktivního Agenta
+při Create (404).
 → [§ 9](c05/detailed-design.md#9-rozhodnutí-záměrně-ponechaná-v-kódu)
 
 Testy odvozené z DD, design ↔ code a evidence:

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { beginLoginAttempt, clearLoginFailures } from "../src/lib/login-throttle";
+import { parseInstant, parseInterval } from "../src/lib/request-body";
 import {
   assertCanConfirm,
+  assertNoConfirmedOverlap,
+  assertStartsInFuture,
   assertWithinQuota,
   initialStatus,
   intervalsOverlap,
@@ -101,6 +105,46 @@ const cases: Array<[string, () => void]> = [
     expectViolation(() => assertCanConfirm(false, false), "AGENT_INACTIVE", /inactive/);
     expectViolation(() => assertCanConfirm(true, true), "AGENT_UNAVAILABLE", /no longer available/);
     expectViolation(() => assertCanConfirm(false, true), "AGENT_INACTIVE", /inactive/);
+  }],
+
+  // DD-T7 — BR-02: Create and Approve share one overlap rule
+  ["overlap rule: Create reports AGENT_UNAVAILABLE with its own message", () => {
+    assert.doesNotThrow(() => assertNoConfirmedOverlap(false));
+    expectViolation(() => assertNoConfirmedOverlap(true), "AGENT_UNAVAILABLE", /not free/);
+  }],
+
+  // DD-T8 — BR-06: a new Reservation starts strictly in the future
+  ["future start: startTime at or before now is refused (START_IN_PAST)", () => {
+    assert.doesNotThrow(() => assertStartsInFuture({ startTime: at(10) }, at(9)));
+    expectViolation(() => assertStartsInFuture({ startTime: at(10) }, at(10)), "START_IN_PAST", /after the current time/);
+    expectViolation(() => assertStartsInFuture({ startTime: at(9) }, at(10)), "START_IN_PAST", /after the current time/);
+  }],
+
+  // Adapter — BR-01 input format: explicit offset required, start < end
+  ["interval input: offsets required, start < end", () => {
+    assert.equal(parseInstant("2030-01-01T10:00:00Z")?.toISOString(), "2030-01-01T10:00:00.000Z");
+    assert.equal(parseInstant("2030-01-01T11:00:00+01:00")?.toISOString(), "2030-01-01T10:00:00.000Z");
+    assert.equal(parseInstant("2030-01-01T10:00:00"), null);
+    assert.equal(parseInstant("2030-01-01"), null);
+    assert.equal(parseInstant("not a date"), null);
+    assert.equal(parseInstant("2030-02-31T10:00:00Z"), null);
+    assert.equal(parseInstant("2030-01-01T24:00Z"), null);
+    assert.ok(parseInstant("2028-02-29T10:00Z"));
+    assert.equal(parseInterval("2030-01-01T10:00Z", "2030-01-01T10:00Z"), null);
+    assert.ok(parseInterval("2030-01-01T10:00Z", "2030-01-01T11:00Z"));
+  }],
+
+  // Adapter — login throttle: five failures lock the email until the window ends
+  ["login throttle: 5 attempts pass, 6th is locked; success or window end unlocks", () => {
+    const email = "throttle@test.local";
+    const t0 = 1_000_000;
+    for (let i = 0; i < 5; i += 1) assert.equal(beginLoginAttempt(email, t0), 0);
+    assert.equal(beginLoginAttempt(email, t0), 15 * 60);
+    assert.equal(beginLoginAttempt(email, t0 + 15 * 60 * 1000), 0);
+    clearLoginFailures(email);
+    for (let i = 0; i < 5; i += 1) beginLoginAttempt(email, t0);
+    clearLoginFailures(email);
+    assert.equal(beginLoginAttempt(email, t0), 0);
   }],
 ];
 

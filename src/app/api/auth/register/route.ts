@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@/generated/prisma/client";
 import { createSession } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -30,20 +31,24 @@ export async function POST(request: Request) {
     );
   }
 
+  // Any existing account, including a legacy one without a password, is never
+  // claimed by registration; otherwise anyone could take over its Reservations.
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing?.passwordHash || existing?.role === "ADMIN") {
+  if (existing) {
     return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);
-  const user = existing
-    ? await prisma.user.update({
-        where: { id: existing.id },
-        data: { name, passwordHash },
-      })
-    : await prisma.user.create({
-        data: { name, email, passwordHash },
-      });
+  const user = await prisma.user
+    .create({ data: { name, email, passwordHash } })
+    .catch((error: unknown) => {
+      // Two concurrent registrations of one email: the unique index decides.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+      throw error;
+    });
+  if (!user) {
+    return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+  }
 
   await createSession(user.id);
   return NextResponse.json(

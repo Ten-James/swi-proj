@@ -18,6 +18,51 @@ Decision / what changes because of the result:
 Prisma a současnou databázi ponecháme jako persistence vrstvu
 reservation systému a použijeme ji také pro CP1 walking skeleton.
 
+## Evidence C02: specifikace → běžící aplikace
+
+Podrobný záznam: [evidence-and-evolution-c02.md](evidence-and-evolution-c02.md).
+
+**Přijatá baseline:** [Specification Baseline v0.1 a v0.2](specification.md).
+Obě baseline jsou implementované a ověřené; formální schválení týmem se
+zaznamenává v [team-approval.md](team-approval.md).
+
+**Předvedené základní operace:** OP-01 Create (`POST /api/reservations`),
+OP-02 Check Availability (`GET /api/availability`), OP-03 Confirm (atomický
+commit krok uvnitř Create, u Agentů se schválením dokončen OP-05), OP-04 Cancel
+(`PATCH /api/reservations/{id}/cancel`), OP-05 Approve / Reject
+(`PATCH /api/reservations/{id}/decision`, pouze Admin).
+
+**Skutečně provedené příklady ověření:** `npm run test:c02` — pro každou
+operaci úspěšný i negativní/hraniční scénář, mj. nulový interval, neaktivní
+Agent, limit `BR-04`, sousední polouzavřené intervaly, souběžné konfliktní
+Create, zrušení přesně v `startTime`, konflikt vzniklý během čekání na schválení,
+expirace na hranici `startTime` a souběžná konfliktní schválení. Poslední běh
+2026-10-19: **PASS 26/26**.
+
+**Nalezený nesoulad a způsob vyřešení:** zadání předpokládá stav `DRAFT` a
+samostatné Confirm. Aplikace ani přijatý model mezistav nemají; tým rozhodl, že
+Confirm je commit krok uvnitř Create (`[none] → CONFIRMED`) a tuto sémantiku
+promítl do textu, use-case modelu, stavového diagramu i testů
+([consistency-notes.md](consistency-notes.md)). Opraven byl zdroj
+(specifikace), ne kód.
+
+**Shrnutí dopadu změny:** Agent s `requiresApproval` vytváří
+`PENDING_APPROVAL`, který neblokuje dostupnost, ale počítá se do `BR-04`. Nová
+operace OP-05 a aktér Admin; nové koncové stavy `REJECTED` a `EXPIRED`
+(`currentTime >= startTime`). Nezměněny: `BR-01`, `BR-02`, OP-02 (blokuje jen
+`CONFIRMED`).
+
+**Zbývající předpoklad / neznámá:** expirace se perzistuje líně (při dalším
+čtení nebo rozhodnutí), ne časovačem. Vytvoření Reservation s `startTime` v
+minulosti bylo neošetřené; ve v0.2.1 řeší `BR-06` (čeká na schválení týmem).
+
+**Architektonické drivery přenesené do C03:** souběžné Create/Approve vs.
+`BR-02`; perzistentní čekající schválení přežívající request; jednotný vlastník
+časové hranice `startTime`.
+
+**Commit / tag aplikace:** `b107a9d` (merge PR #9, baseline v0.2 + autentizace),
+tag `c02-baseline-v0.2`.
+
 ## C03 — Architecture Evidence
 
 ### Accepted baseline and selected slice
@@ -129,7 +174,10 @@ skutečný průchod API → SQLite → opětovné načtení stejné Reservation.
 - Architektonický test chrání jedinou zásadní write hranici, ne všechny možné
   závislosti.
 - Reservation Service je stále přímo svázaný s Prisma adaptérem.
-- Přesný commit/tag doplní tým až při vytvoření schváleného Git baseline.
+
+### Commit/tag
+
+`4669362` (merge PR #11, obsahuje refaktor `a080ee1`), tag `c03-architecture`.
 
 ## C05 DD Verification Evidence
 
@@ -212,3 +260,45 @@ Code review DD proti kódu (2026-10-12) našlo:
 
 Tag `c05-detailed-design` (anotovaný) na commitu, který obsahuje tento DD,
 opravy z review a výsledky testů výše. Ověření: `git show c05-detailed-design`.
+
+## Code review fixes — Specification Baseline v0.2.1
+
+Code review 2026-10-19 (větev `fix/review-findings`). Každý nález byl nejdřív
+reprodukován na běžící aplikaci, pak opraven ve zdroji, kam patří.
+
+| # | Nález (reprodukce) | Zdroj chyby | Oprava |
+|---|---|---|---|
+| 1 | registrace e-mailu existujícího účtu bez hesla převzala účet i jeho Reservations | implementace | `register` vrací 409 pro jakýkoliv existující účet; souběh rozhoduje unique index (P2002 → 409) |
+| 2 | Create se `startTime` v roce 2020 → 201 `PENDING_APPROVAL` | specifikace (chybělo pravidlo) | nové `BR-06`, `assertStartsInFuture` v policy, kód `START_IN_PAST` → 400 |
+| 3 | čas bez offsetu (`2030-01-01T10:00:00`) přijat v časové zóně serveru | specifikace + implementace | `BR-01` vyžaduje offset/`Z`; `parseInterval` v `request-body.ts` pro Create i Availability |
+| 4 | poznámka 200 KB → 201 | implementace | limit 500 znaků → 400 |
+| 5 | login neznámého e-mailu rychlejší (bez scrypt); žádný limit pokusů | implementace | `verifyAgainstDummy`; `login-throttle.ts` – 5 chyb / 15 min na e-mail → 429 + `Retry-After` |
+| 6 | Gantt přehled skrýval Reservations neaktivních Agentů | implementace (UI) | seskupení podle Agenta z Reservation, ne ze seznamu aktivních |
+| 7 | překryv při Create rozhodovala service (`ApiError`), ne policy | design ↔ code (DD §11 PARTLY) | `assertNoConfirmedOverlap` sdílí Create i Approve; HTTP 409 beze změny |
+| 8 | `prisma7.config.ts` – nestandardní název konfigurace | konfigurace | `prisma.config.ts`, výchozí `DATABASE_URL` |
+| 9 | `.env` verzovaný | repozitář | `.env` v `.gitignore`, přidán `.env.example` |
+| 10 | E2E fixture spoléhala na chybu #1 (vytvoření Usera bez hesla a následná „registrace“) | test | helper `registeredUser` |
+| 11 | *(druhé kolo review)* `2030-02-31` se tiše posunulo na 3. 3., `24:00` na další den | implementace | `parseInstant` kontroluje kalendářní den a hodinu |
+| 12 | *(druhé kolo review)* paralelní dávka loginů prošla limitem, dokud běžel scrypt | implementace | pokus se započítá před ověřením hesla (`beginLoginAttempt`), úspěch čítač maže |
+
+Také: CI nově spouští lint, typecheck, `test:c05`, `test:architecture`,
+`test:api-persistence` i `test:c02`; E2E skripty respektují `API_URL`.
+
+### Ověření
+
+Spuštěno 2026-10-19 na čisté SQLite (`db:deploy` + `db:seed`) a `next dev`:
+
+| Kontrola | Výsledek |
+|---|---|
+| `npm run test:c05` | **PASS** — 20/20 (+ `BR-06`, sdílený overlap, parsování intervalu, throttle) |
+| `npm run test:architecture` | **PASS** |
+| `npm run test:c02` | **PASS** — 31/31 (+ převzetí účtu, throttle, `BR-06`, offset, délka poznámky); spuštěno dvakrát po sobě proti `next build` + `next start` |
+| `npm run test:api-persistence` | **PASS** |
+| `npm run lint`, `npm run typecheck`, `npm run build` | **PASS** |
+
+### Zbývající riziko
+
+- Throttle je v paměti procesu – platí jen pro jednoprocesové nasazení dle
+  ADR-001; útočník jím může dočasně zablokovat přihlášení cizího e-mailu.
+- `BR-06` a v0.2.1 čekají na schválení týmem ([team-approval.md](team-approval.md)).
+
