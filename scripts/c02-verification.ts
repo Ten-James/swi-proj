@@ -70,6 +70,12 @@ async function authenticate(email: string, name = "C02 Verification User") {
   return cookie;
 }
 
+/** Registers a real account (registration never claims existing ones) and returns its row. */
+async function registeredUser(email: string, name: string) {
+  await authenticate(email, name);
+  return prisma.user.findUniqueOrThrow({ where: { email } });
+}
+
 async function createViaApi(input: {
   email: string;
   agentId: string;
@@ -133,6 +139,32 @@ async function main() {
     assert.equal(login.response.status, 401);
   });
 
+  await runCase("Registration cannot claim an existing account without a password", async () => {
+    const email = testEmail("legacy-account");
+    await prisma.user.create({ data: { name: "Legacy User", email } });
+    const result = await api(
+      "/api/auth/register",
+      json("POST", { name: "Attacker", email, password: TEST_PASSWORD }),
+    );
+    assert.equal(result.response.status, 409);
+    assert.equal(result.response.headers.get("set-cookie"), null);
+    const stored = await prisma.user.findUniqueOrThrow({ where: { email } });
+    assert.equal(stored.passwordHash, null);
+    assert.equal(stored.name, "Legacy User");
+  });
+
+  await runCase("Login is throttled after repeated failures", async () => {
+    const email = testEmail("throttle");
+    await authenticate(email);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const failed = await api("/api/auth/login", json("POST", { email, password: "wrong-password1" }));
+      assert.equal(failed.response.status, 401);
+    }
+    const locked = await api("/api/auth/login", json("POST", { email, password: TEST_PASSWORD }));
+    assert.equal(locked.response.status, 429);
+    assert.ok(Number(locked.response.headers.get("retry-after")) > 0);
+  });
+
   await runCase("Logout invalidates the active Session", async () => {
     const email = testEmail("logout");
     const cookie = await authenticate(email);
@@ -193,6 +225,45 @@ async function main() {
       startTime: iso(10),
       endTime: iso(10),
     });
+    assert.equal(result.response.status, 400);
+  });
+
+  await runCase("OP-01 rejects a Reservation starting in the past (BR-06)", async () => {
+    const past = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const result = await createViaApi({
+      email: testEmail("past-start"),
+      agentId: immediate.id,
+      startTime: past.toISOString(),
+      endTime: new Date(past.getTime() + 60 * 60 * 1000).toISOString(),
+    });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.body.code, "START_IN_PAST");
+  });
+
+  await runCase("OP-01 and OP-02 reject instants without an explicit offset", async () => {
+    const result = await createViaApi({
+      email: testEmail("no-offset"),
+      agentId: immediate.id,
+      startTime: "2035-01-15T10:00:00",
+      endTime: "2035-01-15T11:00:00",
+    });
+    assert.equal(result.response.status, 400);
+    const query = new URLSearchParams({
+      agentId: immediate.id,
+      startTime: "2035-01-15T10:00:00",
+      endTime: "2035-01-15T11:00:00",
+    });
+    const availability = await api(`/api/availability?${query}`);
+    assert.equal(availability.response.status, 400);
+  });
+
+  await runCase("OP-01 rejects a note longer than 500 characters", async () => {
+    const cookie = await authenticate(testEmail("long-note"));
+    const result = await api(
+      "/api/reservations",
+      json("POST", { agentId: immediate.id, startTime: iso(20), endTime: iso(21), note: "x".repeat(501) }),
+      cookie,
+    );
     assert.equal(result.response.status, 400);
   });
 
@@ -300,9 +371,7 @@ async function main() {
 
   await runCase("OP-04 rejects cancellation at or after startTime", async () => {
     const email = testEmail("cancel-started");
-    const user = await prisma.user.create({
-      data: { name: "Started fixture", email },
-    });
+    const user = await registeredUser(email, "Started fixture");
     const started = await prisma.reservation.create({
       data: {
         userId: user.id,
@@ -383,9 +452,7 @@ async function main() {
 
   await runCase("OP-04 expires PENDING_APPROVAL at the cancellation boundary", async () => {
     const email = testEmail("cancel-expired-pending");
-    const user = await prisma.user.create({
-      data: { name: "Pending expiration fixture", email },
-    });
+    const user = await registeredUser(email, "Pending expiration fixture");
     const pending = await prisma.reservation.create({
       data: {
         userId: user.id,

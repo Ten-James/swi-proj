@@ -313,6 +313,6 @@ Remaining risks:
 - The architecture check is intentionally narrow: it protects lifecycle write
   ownership, not every possible dependency direction.
 - The Prisma adapter is not hidden behind a database-independent repository contract.
-- Exact commit/tag remains to be recorded after the team commits this baseline.
+- Commit/tag: `4669362` (merge PR #11), tag `c03-architecture`.
 
 Completion status: [checklist.md](checklist.md)

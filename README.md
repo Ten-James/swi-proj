@@ -6,6 +6,7 @@ používá Next.js, Prisma a SQLite.
 ## Spuštění
 
 ```powershell
+copy .env.example .env   # volitelné; výchozí DATABASE_URL je file:./dev.db
 npm install
 npm run db:deploy
 npm run db:seed
@@ -50,9 +51,14 @@ svá testovací data. Další kontroly:
 
 ```powershell
 npm run lint
-npx tsc --noEmit
+npm run typecheck
+npm run test:c05
 npm run build
 ```
+
+`test:c05` spouští unit testy odvozené z C05 detailního návrhu a nepotřebuje
+databázi ani běžící aplikaci. E2E skripty berou adresu aplikace z `API_URL`
+(výchozí `http://localhost:3000`). CI spouští všechny kontroly včetně `test:c02`.
 
 Úplná specifikace je v [docs/specification.md](docs/specification.md), plán testů
 v [docs/verification-plan.md](docs/verification-plan.md) a zaznamenané výsledky

@@ -49,10 +49,12 @@ jako jednotky.
 | Plán zrušení | `reservation-policy.planCancel` | `userId`, `status`, `startTime`, actor, `now` | Všechny větve `BR-03` v jedné funkci. |
 | Plán rozhodnutí | `reservation-policy.planDecision` | `status`, `startTime`, rozhodnutí, `now` | Rozlišuje `EXPIRE` / `REJECT` / `CONFIRM_CHECKS`. |
 | Podmínky potvrzení | `reservation-policy.assertCanConfirm` | `agent.isActive`, nález překryvu (vstupy) | Poslední kontrola před přechodem na `CONFIRMED`. |
+| Překryv blokuje Create i Approve | `reservation-policy.assertNoConfirmedOverlap` | nález překryvu (vstup) | Jedno rozhodnutí `BR-02` pro obě cesty k `CONFIRMED` (v0.2.1). |
+| Začátek v budoucnosti | `reservation-policy.assertStartsInFuture` | `startTime`, `now` | `BR-06` (v0.2.1): stejný zdroj času jako `BR-03`. |
 | Důvod odmítnutí | `ReservationRuleViolation` (`code: ReservationRuleCode`) | `code`, `message` | Doménový kontrakt selhání bez HTTP. |
 | Dotaz na překryv, expirace, zápisy, transakce, čas `now` | `reservation-service` (`findConfirmedOverlap`, `expirePendingReservations`) | Prisma `tx`, tabulka Reservation | Jediný zapisovatel (ADR-001); rozhoduje o I/O. |
 | Mapování selhání na HTTP | `api-error-response.ts` (`ruleViolationStatus`) + Route Handlers | `code → status` | Adaptér; jediné místo, kde se doménový kód stává HTTP kódem. |
-| Validace HTTP těla | `request-body.ts` (`readJsonObject`, `optionalString`) | JSON payload | Chybný payload je 400 dřív, než dojde na service. |
+| Validace HTTP těla | `request-body.ts` (`readJsonObject`, `optionalString`, `parseInterval`) | JSON payload, query | Chybný payload nebo čas bez offsetu je 400 dřív, než dojde na service. |
 
 **Směr závislostí:** `Route Handler → reservation-service → reservation-policy`,
 `api-error-response → reservation-policy`. Policy **nemá žádný import** (hlídá
@@ -70,6 +72,7 @@ Selhání pravidla je vždy `ReservationRuleViolation` s jedním z kódů:
 | `QUOTA_EXCEEDED` | `BR-04` by byl překročen | 403 |
 | `INVALID_STATE` | zdrojový stav nepovoluje přechod | 409 |
 | `AFTER_START` | `now >= startTime` | 409 |
+| `START_IN_PAST` | `BR-06` – nová Reservation začíná v `now` nebo dříve | 400 |
 | `AGENT_INACTIVE` | `BR-05` | 409 |
 | `AGENT_UNAVAILABLE` | `BR-02` – existuje překrývající `CONFIRMED` | 409 |
 
@@ -106,6 +109,12 @@ assertCanConfirm(agentIsActive, hasConfirmedOverlap) : void
   Failures (v tomto pořadí):
     - AGENT_INACTIVE     Agent není aktivní
     - AGENT_UNAVAILABLE  existuje překrývající se CONFIRMED Reservation stejného Agenta
+
+assertNoConfirmedOverlap(hasConfirmedOverlap, message?) : void
+  Failures: AGENT_UNAVAILABLE pokud existuje překrývající se CONFIRMED (Create i Approve)
+
+assertStartsInFuture(interval, now) : void
+  Failures: START_IN_PAST pokud interval.startTime <= now   (BR-06)
 
 assertWithinQuota(activeCount, maxReservations) : void
   Failures: QUOTA_EXCEEDED pokud activeCount >= maxReservations
@@ -198,7 +207,7 @@ sequenceDiagram
 
 | Operation | Responsibility | Input → Output | Preconditions | Postconditions | Side effects | Failure behavior |
 |---|---|---|---|---|---|---|
-| `createReservation` | vytvořit Reservation | `userId, agentId, interval, note` → Reservation | interval validován adaptérem (`start < end`) | stav dle `initialStatus`; `BR-02`, `BR-04` platí | expirace propadlých PENDING, insert | 404 Agent, `ApiError` 409 překryv, 401 User, `QUOTA_EXCEEDED` |
+| `createReservation` | vytvořit Reservation | `userId, agentId, interval, note` → Reservation | interval validován adaptérem (`start < end`, offset) | stav dle `initialStatus`; `BR-02`, `BR-04`, `BR-06` platí | expirace propadlých PENDING, insert | `START_IN_PAST`, 404 Agent, `AGENT_UNAVAILABLE`, 401 User, `QUOTA_EXCEEDED` |
 | `cancelReservation` | zrušit nebo expirovat | `id, actor, now` → `{reservation, expired}` | Reservation existuje | stav dle `planCancel` | update `status` | 404, `NOT_OWNER`, `INVALID_STATE`, `AFTER_START` |
 | `decideReservation` | Approve/Reject | `id, decision, now` → `{reservation, expired}` | Reservation existuje | stav dle `planDecision` + `assertCanConfirm` | update `status` | 404, `INVALID_STATE`, `AGENT_INACTIVE`, `AGENT_UNAVAILABLE` |
 | `findConfirmedOverlap` | dotaz `BR-02` | `client, agentId, interval, excludeId?` → `{id} \| null` | – | výsledek odpovídá `intervalsOverlap` | čtení | – |
@@ -243,8 +252,9 @@ Pořadí kontrol je záměrné a zachovává chování ověřené C02 sadou.
   `startTime <= now` je hromadný ekvivalent `isPendingExpired`.
 - Volba izolace transakce a retry při souběhu (viz zbývající riziko v evidenci).
 - Text chybových zpráv a tvar HTTP odpovědi (`api-error-response.ts`).
-- Kontroly v `createReservation` mimo policy: neexistující/neaktivní Agent (404)
-  a překryv při Create (`ApiError` 409) – chování C02 zachováno beze změny.
+- Neexistující/neaktivní Agent při Create (404) zůstává v service: karta OP-01
+  záměrně nerozlišuje neznámého a neaktivního Agenta. Překryv při Create už
+  rozhoduje policy (`assertNoConfirmedOverlap`, v0.2.1).
 
 ## 10. Testy odvozené z DD
 
@@ -260,6 +270,8 @@ Implementace: `scripts/c05-unit-tests.ts`, spuštění `npm run test:c05`
 | failure behavior `assertCanConfirm` | neaktivní Agent má přednost před překryvem; čistý stav projde | unit | `confirm: inactive agent and later overlap …` |
 | failure behavior `assertWithinQuota` | při `count = max` je `QUOTA_EXCEEDED` | unit | `quota: below limit passes, at limit fails …` |
 | idempotence `BR-03` | opakované zrušení nemění stav | unit | `cancel: repeated cancel is idempotent` |
+| failure behavior `assertStartsInFuture` (`BR-06`) | začátek přesně v `now` i dříve je `START_IN_PAST` | unit | `future start: …` |
+| contract `assertNoConfirmedOverlap` | Create i Approve hlásí `AGENT_UNAVAILABLE` | unit | `overlap rule: …` |
 | collaboration service ↔ policy ↔ Prisma ↔ adaptér | konflikt vzniklý během čekání nepotvrdí Approve (409); souběžné Create/Approve; chybný payload → 400 | component/integration | C02 scénáře (`npm run test:c02`, vyžaduje běžící aplikaci) |
 
 **Test: cancel na hranici `startTime`**
@@ -285,7 +297,9 @@ Implementace: `scripts/c05-unit-tests.ts`, spuštění `npm run test:c05`
 | Policy hlásí doménové kódy, ne HTTP | YES (po opravě) | `ReservationRuleViolation`, `api-error-response.ts` | původně `ApiError` s HTTP – update code |
 | Service volá policy a zůstává jediným zapisovatelem | YES | `src/lib/reservation-service.ts`, architecture check | keep |
 | Pořadí kontrol Cancel/Decision beze změny chování | YES | `npm run test:c02` 26/26 | keep |
-| Testy odvozené z DD | YES | `scripts/c05-unit-tests.ts` (16 testů) | keep |
+| Testy odvozené z DD | YES | `scripts/c05-unit-tests.ts` (20 testů od v0.2.1) | keep |
 | Testy spuštěny | YES | [evidence](../evidence-and-evolution.md#c05-dd-verification-evidence) | keep |
 | Plán quota počítá v service, ne v policy | PARTLY | `createReservation` počítá `count` dotazem | keep – počítání je I/O, pravidlo je v policy |
-| BR-05 a překryv při Create rozhoduje service, ne policy | PARTLY | `createReservation` (404 / `ApiError` 409) | keep – vědomě, viz §9; kandidát na další iteraci |
+| Překryv při Create rozhoduje policy | YES (v0.2.1) | `assertNoConfirmedOverlap` v `createReservation` | původně `ApiError` 409 v service – update code |
+| `BR-06` začátek v budoucnosti | YES (v0.2.1) | `assertStartsInFuture`, unit + C02 test | nové pravidlo z code review |
+| `BR-05` při Create v policy | NO (vědomě) | `createReservation` (404) | keep – viz §9 |

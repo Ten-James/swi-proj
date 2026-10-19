@@ -49,6 +49,10 @@ and must satisfy:
 
 Therefore `[10:00,11:00)` and `[11:00,12:00)` do not overlap.
 
+*(v0.2.1)* `startTime` and `endTime` are instants in ISO 8601 with an explicit
+offset or `Z` (e.g. `2035-01-15T10:00:00Z`). A value without an offset is invalid
+input, because its meaning would depend on the server's time zone.
+
 ## BR-02 — Exclusive Agent invariant
 
 At no committed system state may two `CONFIRMED` Reservations overlap
@@ -99,6 +103,15 @@ Concurrent requests must not allow a User to exceed `N`.
 Only an active AI Agent may receive a new `CONFIRMED` Reservation.
 
 If the Agent is inactive, creation is rejected and no Reservation is created.
+
+## BR-06 — Future start *(v0.2.1)*
+
+A new Reservation must satisfy `currentTime < startTime`, with `currentTime`
+read from the reservation application's system clock (as in BR-03).
+
+Rationale: a Reservation starting in the past could never be cancelled (BR-03)
+and, for approval-required Agents, would be created only to expire (REQ-12).
+Existing Reservations are not affected.
 
 ---
 
@@ -168,6 +181,8 @@ BR-01, BR-02, BR-04, BR-05.
 
 - unknown or inactive Agent → reject; no Reservation created;
 - invalid interval → reject; no Reservation created;
+- *(v0.2.1)* `startTime <= currentTime` (BR-06) → reject; no Reservation created;
+- *(v0.2.1)* note longer than 500 characters → reject; no Reservation created;
 - overlapping `CONFIRMED` Reservation → reject; no Reservation created;
 - active Reservation limit exceeded → reject; no Reservation created;
 - persistence failure → no successful result is reported.
@@ -176,6 +191,8 @@ BR-01, BR-02, BR-04, BR-05.
 
 - active Agent + free `[10:00,11:00)` → one `CONFIRMED` Reservation is created;
 - `startTime == endTime` → rejected;
+- *(v0.2.1)* `startTime` one hour before `currentTime` → rejected;
+- *(v0.2.1)* `startTime` without offset (`2035-01-15T10:00:00`) → rejected;
 - inactive Agent → rejected;
 - overlap with an existing `CONFIRMED` Reservation → rejected;
 - User already has `N` active Reservations → rejected.

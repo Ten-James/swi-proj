@@ -3,6 +3,8 @@ import { ApiError } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
 import {
   assertCanConfirm,
+  assertNoConfirmedOverlap,
+  assertStartsInFuture,
   assertWithinQuota,
   initialStatus,
   overlapBounds,
@@ -121,18 +123,19 @@ export async function checkAgentAvailability(
 }
 
 export async function createReservation(input: CreateReservationInput, now = new Date()) {
+  assertStartsInFuture(input, now);
+
   return prisma.$transaction(async (tx) => {
     await expirePendingReservations(tx, now);
 
+    // BR-05 at Create: an inactive Agent is reported like an unknown one (OP-01 card).
     const agent = await tx.agent.findUnique({ where: { id: input.agentId } });
     if (!agent || !agent.isActive) {
       throw new ApiError(404, "Agent not found or inactive");
     }
 
     const overlapping = await findConfirmedOverlap(tx, input.agentId, input);
-    if (overlapping) {
-      throw new ApiError(409, "Agent is not free in the requested time window");
-    }
+    assertNoConfirmedOverlap(overlapping !== null);
 
     const user = await tx.user.findUnique({ where: { id: input.userId } });
     if (!user) throw new ApiError(401, "Authenticated User no longer exists");

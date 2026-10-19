@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { prisma } from "../src/lib/prisma";
 
-const API_URL = "http://localhost:3000";
+const API_URL = process.env.API_URL ?? "http://localhost:3000";
 
 async function main() {
   // Testovací resource.

@@ -39,3 +39,24 @@ Approved by:
 Date:
 
 Notes:
+
+---
+
+## Specification Baseline v0.2.1 (code review 2026-10-19)
+
+Status: [ ] Approved by team
+
+Accepted key decision:
+- `BR-06`: Create requires `currentTime < startTime`;
+- `BR-01`: instants must carry an explicit offset or `Z`;
+- Reservation note is limited to 500 characters;
+- registration never claims an existing account.
+
+Approved by:
+- 
+- 
+- 
+
+Date:
+
+Notes:

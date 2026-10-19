@@ -46,3 +46,6 @@ next-env.d.ts
 /dev.db
 *.db
 *.db-journal
+
+# local environment (copy .env.example)
+.env

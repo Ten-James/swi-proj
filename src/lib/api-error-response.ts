@@ -7,6 +7,7 @@ const ruleViolationStatus: Record<ReservationRuleCode, number> = {
   QUOTA_EXCEEDED: 403,
   INVALID_STATE: 409,
   AFTER_START: 409,
+  START_IN_PAST: 400,
   AGENT_INACTIVE: 409,
   AGENT_UNAVAILABLE: 409,
 };

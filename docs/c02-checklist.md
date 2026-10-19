@@ -32,4 +32,4 @@
 - [x] OP-05 and the administrative Reservation view require role `ADMIN`.
 - [x] Registration, login and logout are implemented and verified.
 - [x] Admin operations are separated onto `/admin`.
-- [ ] Application commit/tag is recorded.
+- [x] Application commit/tag is recorded (`b107a9d`, tag `c02-baseline-v0.2`).

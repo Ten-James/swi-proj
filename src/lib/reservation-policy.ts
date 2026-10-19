@@ -30,6 +30,7 @@ export type ReservationRuleCode =
   | "QUOTA_EXCEEDED"
   | "INVALID_STATE"
   | "AFTER_START"
+  | "START_IN_PAST"
   | "AGENT_INACTIVE"
   | "AGENT_UNAVAILABLE";
 
@@ -69,6 +70,16 @@ export function isPendingExpired(
   now: Date,
 ): boolean {
   return reservation.status === "PENDING_APPROVAL" && now >= reservation.startTime;
+}
+
+/** BR-06: a new Reservation must start strictly after currentTime. */
+export function assertStartsInFuture(interval: { startTime: Date }, now: Date): void {
+  if (interval.startTime <= now) {
+    throw new ReservationRuleViolation(
+      "START_IN_PAST",
+      "Reservation must start after the current time",
+    );
+  }
 }
 
 /** BR-04: active Reservations must stay below the User limit before a new one. */
@@ -124,15 +135,20 @@ export function planDecision(
   return decision === "REJECT" ? "REJECT" : "CONFIRM_CHECKS";
 }
 
+/** BR-02: an overlapping CONFIRMED Reservation blocks both Create and Approve. */
+export function assertNoConfirmedOverlap(
+  hasConfirmedOverlap: boolean,
+  message = "Agent is not free in the requested time window",
+): void {
+  if (hasConfirmedOverlap) {
+    throw new ReservationRuleViolation("AGENT_UNAVAILABLE", message);
+  }
+}
+
 /** REQ-09 + BR-02 / BR-05: second phase of Approve, evaluated against current state. */
 export function assertCanConfirm(agentIsActive: boolean, hasConfirmedOverlap: boolean): void {
   if (!agentIsActive) {
     throw new ReservationRuleViolation("AGENT_INACTIVE", "Agent is inactive; approval rejected");
   }
-  if (hasConfirmedOverlap) {
-    throw new ReservationRuleViolation(
-      "AGENT_UNAVAILABLE",
-      "Agent is no longer available; approval rejected",
-    );
-  }
+  assertNoConfirmedOverlap(hasConfirmedOverlap, "Agent is no longer available; approval rejected");
 }

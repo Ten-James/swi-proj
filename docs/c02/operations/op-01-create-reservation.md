@@ -82,7 +82,9 @@ V každém případě nevznikne žádná rezervace:
 
 - uživatel není přihlášen → odmítnuto (401);
 - neplatné JSON nebo chybějící `agentId`, `startTime`, `endTime` → odmítnuto (400);
-- neplatné datum nebo `start >= end` → odmítnuto (400);
+- neplatné datum, čas bez offsetu/`Z` nebo `start >= end` → odmítnuto (400);
+- `startTime <= currentTime` (`BR-06`, v0.2.1) → odmítnuto (400, `START_IN_PAST`);
+- poznámka delší než 500 znaků → odmítnuto (400);
 - agent neexistuje nebo je neaktivní → odmítnuto (404);
 - interval se překrývá s rezervací `CONFIRMED` téhož agenta → odmítnuto (409);
 - uživatel by překročil limit aktivních rezervací → odmítnuto (403);
@@ -95,6 +97,8 @@ V každém případě nevznikne žádná rezervace:
 - aktivní agent se schvalováním + volný interval → vznikne `PENDING_APPROVAL`;
   dotaz OP-02 na tentýž interval stále vrací `AVAILABLE`;
 - `start == end` → odmítnuto;
+- začátek v minulosti → odmítnuto (`START_IN_PAST`);
+- čas bez offsetu (`2035-01-15T10:00:00`) → odmítnuto;
 - neaktivní agent → odmítnuto;
 - neznámý agent → odmítnuto;
 - nepřihlášený uživatel → odmítnuto, nic nevznikne;
@@ -117,10 +121,8 @@ impact v0.2), implementace `POST /api/reservations`.
 
 ## Předpoklad / neznámé / TBD
 
-- Specifikace neříká nic o intervalu v minulosti a implementace ho nezamítá. Pro
-  agenta bez schvalování tak lze vytvořit `CONFIRMED` rezervaci v minulosti. Pro
-  agenta se schvalováním vznikne `PENDING_APPROVAL` s časem v minulosti, který se
-  na `EXPIRED` převede až při dalším čtení nebo rozhodnutí.
+- ~~Interval v minulosti nebyl specifikován ani zamítán.~~ Vyřešeno ve v0.2.1
+  pravidlem `BR-06` (code review 2026-10-19); čeká na schválení týmem.
 - Specifikace rozlišuje „neznámý“ a „neaktivní“ agent jen jako „odmítnuto“.
   Implementace v obou případech vrací stejné 404.
 - Limit N je ve specifikaci „konfigurovatelný“. Implementace ho drží jako
