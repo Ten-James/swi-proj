@@ -1,0 +1,30 @@
+{
+  "name": "agent-reservations-pitch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "react-slides dev",
+    "build": "react-slides build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "pdf": "node scripts/export-pdf.mjs"
+  },
+  "dependencies": {
+    "@react-slides/cli": "0.1.0",
+    "@react-slides/components": "0.1.0",
+    "@react-slides/core": "0.1.0",
+    "@react-slides/plugin-mermaid": "0.1.0",
+    "@react-slides/plugin-motion": "0.1.0",
+    "@react-slides/plugin-shiki": "0.1.0",
+    "@react-slides/viewer": "0.1.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "pdf-lib": "^1.17.1",
+    "playwright-core": "^1.56.1",
+    "typescript": "^5"
+  }
+}
