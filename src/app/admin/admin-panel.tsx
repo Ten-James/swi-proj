@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppHeader, { type SessionUser } from "@/components/app-header";
-
-type ReservationStatus = "PENDING_APPROVAL" | "CONFIRMED" | "CANCELLED" | "REJECTED" | "EXPIRED";
+import StatusBadge, { type ReservationStatus } from "@/components/status-badge";
+import { formatRange } from "@/lib/format";
 
 interface AdminReservation {
   id: string;
@@ -13,18 +13,6 @@ interface AdminReservation {
   note: string | null;
   user: { id: string; name: string; email: string };
   agent: { id: string; name: string; requiresApproval: boolean };
-}
-
-const statusColors: Record<ReservationStatus, string> = {
-  PENDING_APPROVAL: "bg-amber-100 text-amber-900",
-  CONFIRMED: "bg-emerald-100 text-emerald-900",
-  CANCELLED: "bg-slate-200 text-slate-800",
-  REJECTED: "bg-rose-100 text-rose-900",
-  EXPIRED: "bg-violet-100 text-violet-900",
-};
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
 export default function AdminPanel({ user }: { user: SessionUser }) {
@@ -63,6 +51,8 @@ export default function AdminPanel({ user }: { user: SessionUser }) {
     };
   }, [load]);
 
+  const pendingCount = reservations.filter((reservation) => reservation.status === "PENDING_APPROVAL").length;
+
   const displayed = useMemo(
     () => filter === "PENDING" ? reservations.filter((reservation) => reservation.status === "PENDING_APPROVAL") : reservations,
     [filter, reservations],
@@ -90,38 +80,62 @@ export default function AdminPanel({ user }: { user: SessionUser }) {
     }
   }
 
-  return (
-    <main className="mx-auto w-full max-w-6xl px-5 pb-14">
-      <AppHeader user={user} />
-      <section className="flex flex-wrap items-end justify-between gap-4 py-10">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Administrace rezervací</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">Schvalování žádostí a přehled všech rezervací.</p>
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setFilter("PENDING")} className={filter === "PENDING" ? "button-primary" : "button-secondary"}>Čekající ({reservations.filter((item) => item.status === "PENDING_APPROVAL").length})</button>
-          <button type="button" onClick={() => setFilter("ALL")} className={filter === "ALL" ? "button-primary" : "button-secondary"}>Všechny</button>
-        </div>
-      </section>
+  const tab = (value: "PENDING" | "ALL", label: string, count?: number) => (
+    <button
+      type="button"
+      onClick={() => setFilter(value)}
+      aria-pressed={filter === value}
+      className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition ${filter === value ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}
+    >
+      {label}
+      {count !== undefined && <span className="font-mono text-xs text-ink-subtle">{count}</span>}
+    </button>
+  );
 
-      {feedback && <p className={`mb-6 rounded-lg p-4 text-sm ${feedback.type === "error" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>{feedback.text}</p>}
-      {loading ? (
-        <p className="text-sm text-gray-500">Načítám…</p>
-      ) : displayed.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">Žádné odpovídající rezervace.</p>
-      ) : (
-        <div className="grid gap-3">
-          {displayed.map((reservation) => (
-            <article key={reservation.id} className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-              <div className="flex flex-wrap items-start justify-between gap-5">
-                <div>
+  return (
+    <>
+      <AppHeader user={user} />
+      <main className="mx-auto w-full max-w-6xl px-5 pb-20">
+        <section className="flex flex-wrap items-end justify-between gap-6 pt-14 pb-8">
+          <div>
+            <h1 className="text-4xl font-semibold tracking-tight text-ink md:text-5xl">Administrace rezervací</h1>
+            <p className="mt-3 text-base text-ink-muted">Schvalování žádostí a přehled všech rezervací.</p>
+          </div>
+          <div className="flex rounded-xl border border-line bg-surface-2 p-1">
+            {tab("PENDING", "Čekající", pendingCount)}
+            {tab("ALL", "Všechny", reservations.length)}
+          </div>
+        </section>
+
+        {feedback && (
+          <p role="status" className={`notice mb-6 ${feedback.type === "error" ? "notice-error" : "notice-success"}`}>
+            {feedback.text}
+          </p>
+        )}
+        {loading ? (
+          <div className="grid gap-3">
+            {[0, 1, 2].map((index) => <div key={index} className="skeleton h-28" />)}
+          </div>
+        ) : displayed.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line-strong p-10 text-center text-sm text-ink-muted">
+            Žádné odpovídající rezervace.
+          </p>
+        ) : (
+          <div className="panel divide-y divide-line">
+            {displayed.map((reservation) => (
+              <article key={reservation.id} className="grid gap-4 p-6 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold">{reservation.agent.name}</h2>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[reservation.status]}`}>{reservation.status}</span>
+                    <h2 className="font-semibold text-ink">{reservation.agent.name}</h2>
+                    <StatusBadge status={reservation.status} />
                   </div>
-                  <p className="mt-2 text-sm">{formatDate(reservation.startTime)} – {formatDate(reservation.endTime)}</p>
-                  <p className="mt-1 text-sm text-gray-500">{reservation.user.name} · {reservation.user.email}</p>
-                  {reservation.note && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{reservation.note}</p>}
+                  <p className="mt-2 text-sm font-medium tabular-nums text-ink">{formatRange(reservation.startTime, reservation.endTime)}</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {reservation.user.name} <span className="text-ink-subtle">{reservation.user.email}</span>
+                  </p>
+                  {reservation.note && (
+                    <p className="mt-3 border-l-2 border-line-strong pl-3 text-sm text-ink-muted">{reservation.note}</p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {reservation.status === "PENDING_APPROVAL" && (
@@ -134,11 +148,11 @@ export default function AdminPanel({ user }: { user: SessionUser }) {
                     <button type="button" onClick={() => action(reservation.id, "CANCEL")} disabled={activeAction !== null} className="button-secondary">Zrušit</button>
                   )}
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </main>
+              </article>
+            ))}
+          </div>
+        )}
+      </main>
+    </>
   );
 }

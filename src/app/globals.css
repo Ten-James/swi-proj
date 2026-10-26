@@ -1,42 +1,141 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Radius rule: controls 8px (rounded-lg), panels 12px (rounded-xl), status badges full pill. */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+:root {
+  --canvas: #f6f6f7;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --line: #e4e4e7;
+  --line-strong: #d4d4d8;
+  --ink: #18181b;
+  --ink-muted: #52525b;
+  --ink-subtle: #71717a;
+  --accent: #047857;
+  --accent-soft: #ecfdf5;
+  --accent-line: #a7f3d0;
+  --danger: #be123c;
+  --danger-soft: #fff1f2;
+  --danger-line: #fecdd3;
+  --warning: #92400e;
+  --warning-soft: #fffbeb;
+  --warning-line: #fde68a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #0c0c0e;
+    --surface: #151518;
+    --surface-2: #1d1d21;
+    --line: #27272a;
+    --line-strong: #3f3f46;
+    --ink: #f4f4f5;
+    --ink-muted: #a1a1aa;
+    --ink-subtle: #8a8a93;
+    --accent: #34d399;
+    --accent-soft: #052e22;
+    --accent-line: #065f46;
+    --danger: #fb7185;
+    --danger-soft: #2a0d14;
+    --danger-line: #881337;
+    --warning: #fcd34d;
+    --warning-soft: #261a05;
+    --warning-line: #78350f;
   }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
 }
 
 @layer components {
+  .panel {
+    @apply rounded-xl border border-line bg-surface;
+  }
+
   .field {
-    @apply rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100;
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-subtle focus:border-accent focus:ring-4 focus:ring-accent/15;
+  }
+
+  .field-label {
+    @apply grid gap-1.5 text-sm font-medium text-ink;
+  }
+
+  .button-primary,
+  .button-secondary,
+  .button-danger {
+    @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition outline-none focus-visible:ring-4 focus-visible:ring-accent/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
 
   .button-primary {
-    @apply rounded-md bg-gray-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200;
+    @apply bg-ink text-canvas hover:opacity-85;
   }
 
   .button-secondary {
-    @apply rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-800;
+    @apply border border-line-strong bg-surface text-ink hover:bg-surface-2;
   }
 
   .button-danger {
-    @apply rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply border border-danger-line bg-surface text-danger hover:bg-danger-soft;
   }
+
+  .notice {
+    @apply rounded-lg border px-4 py-3 text-sm;
+  }
+
+  .notice-success {
+    @apply border-accent-line bg-accent-soft text-accent;
+  }
+
+  .notice-error {
+    @apply border-danger-line bg-danger-soft text-danger;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-xl bg-surface-2 motion-reduce:animate-none;
+  }
+
+  .status {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium tracking-wide;
+  }
+}
+
+/* Reservation states; the same hues mark the Gantt bars and the presentation deck. */
+.status-CONFIRMED { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+.status-PENDING_APPROVAL { border-color: var(--warning-line); background: var(--warning-soft); color: var(--warning); }
+.status-REJECTED { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+.status-CANCELLED { border-color: var(--line-strong); background: var(--surface-2); color: var(--ink-muted); }
+.status-EXPIRED { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
+
+.bar-CONFIRMED { background: #059669; color: #fff; }
+.bar-PENDING_APPROVAL { background: #fbbf24; color: #451a03; }
+.bar-REJECTED { background: #e11d48; color: #fff; }
+.bar-CANCELLED { background: #a1a1aa; color: #fff; }
+.bar-EXPIRED { background: #7c3aed; color: #fff; }
+
+@media (prefers-color-scheme: dark) {
+  .status-EXPIRED { border-color: #4c1d95; background: #1e1036; color: #c4b5fd; }
 }
