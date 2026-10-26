@@ -3,3 +3,4 @@ dist/
 .react-slides-entry.jsx
 speaker.html
 index.html
+*.zip

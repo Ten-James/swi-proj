@@ -13,7 +13,7 @@ const OUT = process.env.OUT ?? 'agent-reservations.pdf'
 const WIDTH = 1920
 const HEIGHT = 1080
 // Slides whose fragments replace each other: print these steps instead of the last one.
-const EXTRA_STEPS = { 17: [3, 4] }
+const EXTRA_STEPS = { 16: [3, 4] }
 
 const browser = await chromium.launch({ executablePath: CHROME_PATH, headless: true })
 const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT } })

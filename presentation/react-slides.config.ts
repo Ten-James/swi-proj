@@ -7,9 +7,4 @@ export default {
   viewport: { width: 1920, height: 1080 },
   controls: [keyboard(), touch(), hashRouter()],
   plugins: [],
-  vite: {
-    // The CLI excludes @react-slides/* from pre-bundling, so mermaid's CommonJS
-    // deps (fastdom) break the dev server unless mermaid is pre-bundled itself.
-    optimizeDeps: { include: ['mermaid'] },
-  },
 }

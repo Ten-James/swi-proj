@@ -1,6 +1,11 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { usePresentation } from '@react-slides/core'
 
+/** Resolves a file from public/ against the deploy base path (react-slides build --base). */
+export function asset(path: string) {
+  return `${import.meta.env.BASE_URL}${path}`
+}
+
 export type Status = 'CONFIRMED' | 'PENDING_APPROVAL' | 'REJECTED' | 'CANCELLED' | 'EXPIRED'
 
 export function BrandMark() {

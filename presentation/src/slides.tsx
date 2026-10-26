@@ -1,18 +1,14 @@
 import { Slide, Fragment, CodeStepper, DiagramStepper } from '@react-slides/core'
 import { TwoColumnLayout } from '@react-slides/components'
-import { MermaidAdapter } from '@react-slides/plugin-mermaid'
 import { useShikiHighlighter } from '@react-slides/plugin-shiki'
 import { regionFadeIn } from '@react-slides/plugin-motion'
 
-import { Browser, BrandMark, Frame, Marker, Pill, type Status } from './ui'
+import { Browser, BrandMark, Frame, Marker, Pill, asset, type Status } from './ui'
 import {
   AllocateByTimeDiagram,
   ArchitectureDiagram,
   IntervalDiagram,
-  MERMAID_CONFIG,
-  NO_REGIONS,
   OwnershipDiagram,
-  SEQUENCE_CHART,
   ShareByQuantityDiagram,
   StateDiagram,
 } from './diagrams'
@@ -136,7 +132,7 @@ export default function AgentReservationsPitch() {
                 <Pill status="EXPIRED" />
               </div>
             </div>
-            <Browser src="/screenshots/home-public.png" alt="Veřejný přehled rezervací" scrollTo={0.44} crop={{ x: 0.1, w: 0.8 }} style={{ height: 580 }} />
+            <Browser src={asset('screenshots/home-public.png')} alt="Veřejný přehled rezervací" scrollTo={0.44} crop={{ x: 0.1, w: 0.8 }} style={{ height: 580 }} />
           </div>
         </Frame>
       </Slide>
@@ -176,7 +172,7 @@ export default function AgentReservationsPitch() {
               gap="64px"
               align="center"
               left={
-                <Browser src="/screenshots/home-user.png" alt="Pohled přihlášeného uživatele" scrollTo={0.185} style={{ height: 690 }}>
+                <Browser src={asset('screenshots/home-user.png')} alt="Pohled přihlášeného uživatele" scrollTo={0.185} style={{ height: 690 }}>
                   <Fragment step={1}>
                     <Marker n={1} x="8.6%" y="22.5%" />
                   </Fragment>
@@ -300,14 +296,14 @@ export default function AgentReservationsPitch() {
         <Frame title="Opožděné schválení exkluzivitu neprolomí.">
           <div className="body grid cols-2" style={{ gap: 48, alignContent: 'start' }}>
             <div>
-              <Browser src="/screenshots/admin-pending-before.png" url="localhost:3000/admin" alt="Fronta žádostí ke schválení" crop={{ x: 0.1, w: 0.8 }} style={{ height: 470 }} />
+              <Browser src={asset('screenshots/admin-pending-before.png')} url="localhost:3000/admin" alt="Fronta žádostí ke schválení" crop={{ x: 0.1, w: 0.8 }} style={{ height: 470 }} />
               <h3 style={{ marginTop: 30 }}>1 · Čekají dvě překrývající se žádosti</h3>
               <p className="muted" style={{ fontSize: 24, marginTop: 8 }}>
                 Claude Opus 5 · Jana 10:00–13:00 a Petr 11:00–12:30. Čekající žádosti se navzájem neblokují.
               </p>
             </div>
             <Fragment>
-              <Browser src="/screenshots/admin-approve-conflict.png" url="localhost:3000/admin" alt="Schválení odmítnuto kvůli konfliktu" crop={{ x: 0.1, w: 0.8 }} style={{ height: 470 }} />
+              <Browser src={asset('screenshots/admin-approve-conflict.png')} url="localhost:3000/admin" alt="Schválení odmítnuto kvůli konfliktu" crop={{ x: 0.1, w: 0.8 }} style={{ height: 470 }} />
               <h3 style={{ marginTop: 30 }}>2 · Petr schválen první → Janino schválení odmítnuto</h3>
               <p className="muted" style={{ fontSize: 24, marginTop: 8 }}>
                 Znovu ověřeno v transakci schválení: <code>409 AGENT_UNAVAILABLE</code>, žádost zůstává <Pill status="PENDING_APPROVAL" />
@@ -338,7 +334,7 @@ export default function AgentReservationsPitch() {
               align="stretch"
               left={
                 <div className="card" style={{ height: '100%', display: 'grid', gridTemplateRows: '1fr auto', gap: 20 }}>
-                  <img src="/images/use-case-v01.png" alt="Případy užití v0.1" style={{ width: '100%', height: 470, objectFit: 'contain' }} />
+                  <img src={asset('images/use-case-v01.png')} alt="Případy užití v0.1" style={{ width: '100%', height: 470, objectFit: 'contain' }} />
                   <div>
                     <span className="tag">BASELINE v0.1</span>
                     <p>UC1–UC6 · vytvoření ověří a potvrdí rezervaci v jednom kroku. Stavy: CONFIRMED, CANCELLED.</p>
@@ -347,7 +343,7 @@ export default function AgentReservationsPitch() {
               }
               right={
                 <Fragment className="card" style={{ height: '100%', display: 'grid', gridTemplateRows: '1fr auto', gap: 20 }}>
-                  <img src="/images/use-case-v02.png" alt="Případy užití v0.2" style={{ width: '100%', height: 470, objectFit: 'contain' }} />
+                  <img src={asset('images/use-case-v02.png')} alt="Případy užití v0.2" style={{ width: '100%', height: 470, objectFit: 'contain' }} />
                   <div>
                     <span className="tag" style={{ color: 'var(--confirmed)' }}>BASELINE v0.2</span>
                     <p>+ UC7 dostupnost, UC8 schválení / zamítnutí · + PENDING_APPROVAL, REJECTED, EXPIRED · skutečné přihlašování.</p>
@@ -482,40 +478,6 @@ export default function AgentReservationsPitch() {
         </Frame>
       </Slide>
 
-      <Slide notes="ADR-001, přijato 2026-10-05. Zdůrazněte, že jsme sepsali náklady, které přijímáme, i konkrétní spouštěče, které by rozhodnutí znovu otevřely.">
-        <Frame title="Modulární monolit s jedinou Reservation Service uvnitř procesu." section="Architektura">
-          <div className="body grid cols-2" style={{ gap: 32, alignContent: 'center' }}>
-            <div className="card">
-              <span className="tag" style={{ color: 'var(--confirmed)' }}>PROČ</span>
-              <p style={{ color: 'var(--ink-2)', fontSize: 26 }}>
-                Zachovává atomickou transakci SQLite ověřenou testy souběhu, nepřidává žádný síťový způsob selhání a zůstává přímo testovatelný. Náklady varianty B při dnešní zátěži nic neospravedlňuje.
-              </p>
-            </div>
-            <div className="card">
-              <span className="tag" style={{ color: 'var(--rejected)' }}>PŘIJÍMANÉ NÁKLADY</span>
-              <ul className="clean small red">
-                <li>Propustnost roste jen spolu s celým procesem Next.js</li>
-                <li>Služba závisí na Prisma, ne na neutrálním repozitáři</li>
-                <li>SQLite omezuje ukládání dat na jediný uzel</li>
-              </ul>
-            </div>
-            <div className="card" style={{ gridColumn: 'span 2' }}>
-              <span className="tag">PŘEHODNOTIT, KDYŽ</span>
-              <div className="grid cols-2" style={{ gap: '14px 40px' }}>
-                <ul className="clean small">
-                  <li>Rozhodování bude potřebovat vlastní nasazení nebo nezávislý výkon</li>
-                  <li>Schvalování bude řízené událostmi, mimo webový proces</li>
-                </ul>
-                <ul className="clean small">
-                  <li>Přibude více instancí aplikace nebo distribuovaná databáze</li>
-                  <li>Externí integrace bude vyžadovat opakování / izolaci selhání</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </Frame>
-      </Slide>
-
       <Slide steps={6} notes="Statický pohled skládejte po krocích: UI, tenké HTTP adaptéry, Session & Auth vedle Reservation Service, čistá Policy (přidaná v C05), Prisma a SQLite. Poslední krok: zakázaná hrana. Adaptéry nesmí zapisovat stav Reservation; pokud to udělají, npm run test:architecture selže.">
         <Frame title="Tenké adaptéry. Jeden vlastník životního cyklu. Jeden proces." section="Architektura">
           <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
@@ -585,9 +547,9 @@ export default function AgentReservationsPitch() {
       <Slide>
         <Frame dark section="Detailní návrh">
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Pravidla jako čisté funkce.</h1>
+            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Pravidla jako pure funkce.</h1>
             <p className="lede" style={{ fontSize: 36 }}>
-              Uvnitř Reservation Service: rozhoduje policy, I/O obstarává služba, HTTP mluví jen adaptér.
+              Logika aplikace je ve funkcionálním stylu pro přehlednost a testovatelnost.
             </p>
           </div>
         </Frame>
@@ -687,52 +649,6 @@ export default function AgentReservationsPitch() {
         </Frame>
       </Slide>
 
-      <Slide notes="Detailní sekvence z C05: těžký případ ze snímku 7 o úroveň hlouběji. Všimněte si rollbacku: odmítnuté schválení nechá žádost v PENDING_APPROVAL, takže ji Admin může ještě zamítnout, nebo vyprší.">
-        <Frame title="Schválení, když během čekání vznikl konflikt." section="Detailní návrh">
-          <div className="body mermaid-box" style={{ height: 700, flex: 'none' }}>
-            <DiagramStepper steps={[]}>
-              <MermaidAdapter chart={SEQUENCE_CHART} regionMap={NO_REGIONS} config={MERMAID_CONFIG} />
-            </DiagramStepper>
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="planCancel jako rozhodovací tabulka. Na pořadí záleží a odpovídá chování z C02: nejdřív vlastnictví, pak idempotence, potom vypršení staré čekající žádosti.">
-        <Frame title="Zrušení: šest kontrol v pevném pořadí, jedna funkce." section="Detailní návrh">
-          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th style={{ width: 80 }}>#</th>
-                  <th>Podmínka</th>
-                  <th style={{ width: '30%' }}>Výsledek</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ['actor ≠ owner a role ≠ ADMIN', 'NOT_OWNER'],
-                  ['status = CANCELLED', 'ALREADY_CANCELLED · beze změny'],
-                  ['status = PENDING_APPROVAL a now ≥ startTime', 'EXPIRE'],
-                  ['status ∉ {CONFIRMED, PENDING_APPROVAL}', 'INVALID_STATE'],
-                  ['now ≥ startTime', 'AFTER_START'],
-                  ['jinak', 'CANCEL'],
-                ].map(([cond, out], i) => (
-                  <tr key={cond} className={i === 5 ? 'hl' : undefined}>
-                    <td className="mono muted">{i + 1}</td>
-                    <td className="mono" style={{ fontSize: 23 }}>
-                      {cond}
-                    </td>
-                    <td className="mono" style={{ fontWeight: 600, fontSize: 23 }}>
-                      {out}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Frame>
-      </Slide>
-
       {/* ---------------------------------------------------------- */}
       {/* 04 · Ověření                                              */}
       {/* ---------------------------------------------------------- */}
@@ -788,49 +704,6 @@ export default function AgentReservationsPitch() {
         </Frame>
       </Slide>
 
-      <Slide notes="Upřímnost prodává. Porovnali jsme návrhový dokument s kódem a našli pět nesouladů. Každý dostal výslovné rozhodnutí: opravit kód, opravit návrh, nebo obojí.">
-        <Frame title="Porovnali jsme návrh s kódem — a mezery opravili." section="Ověření">
-          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th style={{ width: '46%' }}>Zjištění</th>
-                  <th>Řešení</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Pravidlo překryvu třikrát ručně opsané; čistá funkce se nepoužívala</td>
-                  <td className="win">
-                    <code>overlapBounds()</code> řídí kontrolu v paměti i dotaz do DB
-                  </td>
-                </tr>
-                <tr>
-                  <td>Policy vyhazovala HTTP chyby — doména znala transportní vrstvu</td>
-                  <td className="win">Doménové kódy + převod v adaptéru</td>
-                </tr>
-                <tr>
-                  <td>
-                    Tělo JSON <code>null</code> / pole skončilo chybou 500
-                  </td>
-                  <td className="win">
-                    <code>readJsonObject</code> → 400, nový scénář C02
-                  </td>
-                </tr>
-                <tr>
-                  <td>Chybně citovaná ID požadavků v návrhu</td>
-                  <td className="win">Návrhový dokument opraven</td>
-                </tr>
-                <tr>
-                  <td>Duplicitní typ aktéra a dotaz na vypršení</td>
-                  <td className="win">Sloučeno do jednoho</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </Frame>
-      </Slide>
-
       <Slide notes="Čtyři kontrolní body kurzu, každý zanechal doklady v docs/.">
         <Frame title="Jak jsme se sem dostali." section="Ověření">
           <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
@@ -861,7 +734,7 @@ export default function AgentReservationsPitch() {
       </Slide>
 
       <Slide notes="Pojmenovaná rizika, ne skrytá. Další tlak, který jsme vybrali (kategorie R), je selhání agenta těsně před rezervovaným oknem. Náčrt ukazuje zvažované možnosti: zkrátit, posunout, nebo přeskládat rozvrh.">
-        <Frame title="Známé limity. Pojmenované spouštěče. Další tlak." section="Ověření">
+        <Frame title="Známé limity." section="Ověření">
           <div className="body grid" style={{ gridTemplateColumns: '1fr 0.9fr', gap: 56, alignItems: 'center' }}>
             <div style={{ display: 'grid', gap: 40 }}>
               <div>
@@ -883,7 +756,7 @@ export default function AgentReservationsPitch() {
             </div>
             <div className="card" style={{ padding: 28 }}>
               <span className="tag">BUDOUCÍ TLAK · AGENT SELŽE TĚSNĚ PŘED REZERVACÍ</span>
-              <img src="/images/outage-options.webp" alt="Náčrt možností řešení výpadku" style={{ width: '100%', height: 560, objectFit: 'contain' }} />
+              <img src={asset('images/outage-options.webp')} alt="Náčrt možností řešení výpadku" style={{ width: '100%', height: 560, objectFit: 'contain' }} />
             </div>
           </div>
         </Frame>
@@ -987,7 +860,7 @@ export default function AgentReservationsPitch() {
               </p>
             </div>
             <Browser
-              src="/screenshots/home-user.png"
+              src={asset('screenshots/home-user.png')}
               alt="Aplikace Agent Reservations — pohled přihlášeného uživatele"
               crop={{ x: 0.1, w: 0.8 }}
               style={{ height: 720, border: 0 }}

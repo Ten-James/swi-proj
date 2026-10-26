@@ -13,7 +13,6 @@
     "@react-slides/cli": "0.1.0",
     "@react-slides/components": "0.1.0",
     "@react-slides/core": "0.1.0",
-    "@react-slides/plugin-mermaid": "0.1.0",
     "@react-slides/plugin-motion": "0.1.0",
     "@react-slides/plugin-shiki": "0.1.0",
     "@react-slides/viewer": "0.1.0",
