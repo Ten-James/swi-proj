@@ -269,17 +269,13 @@ export default function TechnicalDesignReview() {
 
       <Slide steps={4} notes="Povinná změna C02 v0.2: Agent s requiresApproval vytváří PENDING_APPROVAL. Schválení je druhá cesta do CONFIRMED, a proto musí BR-02 znovu ověřit. PENDING neblokuje dostupnost, ale počítá se do limitu BR-04.">
         <Frame title="Změna v0.2: druhá cesta do CONFIRMED vede přes Admina." section="A1 · Scope">
-          <div className="body" style={{ display: 'grid', gridTemplateRows: '1fr auto', gap: 24 }}>
+          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
             <DiagramStepper
               animation={regionFadeIn}
               steps={[{ show: ['instant'] }, { show: ['cancel'] }, { show: ['pending'] }, { show: ['endings'] }]}
             >
               <StateDiagram />
             </DiagramStepper>
-            <p className="muted" style={{ fontSize: 24 }}>
-              v0.1: <code>[none] → CONFIRMED</code> v jednom kroku. v0.2: <code>PENDING_APPROVAL</code> neblokuje Agenta, ale počítá se do BR-04; vyprší v{' '}
-              <code>now ≥ startTime</code> (REQ-12).
-            </p>
           </div>
         </Frame>
       </Slide>
