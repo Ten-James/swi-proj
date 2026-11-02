@@ -7,7 +7,7 @@ import { ArchitectureDiagram, IntervalDiagram, OwnershipDiagram, SequenceDiagram
 
 /* Both parts (A and C) must report against the same commit/tag. Update both lines when the tag exists. */
 const ASSESSED_BASELINE = 'f200832'
-const REPORTING_BASELINE = 'd2b1784 + PR #15 · tag doplnit'
+const REPORTING_BASELINE = 'tag doplnit · obsahuje C04 5bc56b0'
 const TEAM = 'swi-proj · IND0040, PRO0458, KOL0603, MER0126'
 
 /* Faithful excerpts of src/lib/reservation-policy.ts (messages shortened). */
@@ -95,7 +95,7 @@ const RISKS: {
     statement: 'Část A a C mohou ukázat jiný stav, protože reporting tag zatím neexistuje → nekonzistentní obhajoba (C06 F2)',
     initial: 'L2 × I2 = MEDIUM 4',
     priority: 'PENDING_APPROVAL',
-    response: 'MITIGATE · tag po merge PR #15, všechny checks na tagu',
+    response: 'MITIGATE · tag na main po merge, všechny checks na tagu',
     expected: 'L1 × I1 = LOW 1',
     actual: 'NOT VERIFIED',
     trigger: 'commit do main po vytvoření tagu',
@@ -114,7 +114,7 @@ const RISKS: {
 ]
 
 const ACTIONS: [string, string, string][] = [
-  ['Merge PR #15 (C04) + odkaz z README', 'docs/c04 v main, README odkazuje', 'F1'],
+  ['Odkázat docs/c04 z README a architecture-and-decisions', 'oba soubory odkazují na C04', 'F1'],
   ['Rozšířit test:c02 o QC-01 (K = 10, R = 5), QC-03, QC-04', 'PASS log v evidence, C04 §4 vyplněno', 'F1 · R-01'],
   ['Schválit baseline v0.1 – v0.2.1', 'jména + datum v team-approval.md', 'F3 · I-1'],
   ['Vytvořit reporting tag a spustit všechny checks na něm', 'tag + tabulka výsledků v evidence', 'F2 · R-02'],
@@ -616,7 +616,7 @@ export default function TechnicalDesignReview() {
                 <p style={{ color: 'var(--ink-2)' }}>Ponechat ADR-001 beze změny kódu. Rozšířit měření; při kterémkoli FAIL přejít na DB constraint nebo retry.</p>
               </div>
               <p className="mono muted" style={{ fontSize: 18 }}>
-                docs/c04/quality-and-measurement.md (PR #15)
+                docs/c04/quality-and-measurement.md · 5bc56b0
               </p>
             </div>
           </div>
@@ -661,7 +661,7 @@ export default function TechnicalDesignReview() {
                   <td>
                     <Pill status="CONFIRMED">ACCEPT</Pill>
                   </td>
-                  <td>docs/c04 v PR #15 · měření K = 10 OPEN</td>
+                  <td>docs/c04 přidáno (5bc56b0) · měření K = 10 OPEN</td>
                 </tr>
                 <tr>
                   <td className="mono">F2</td>
@@ -844,7 +844,7 @@ export default function TechnicalDesignReview() {
                   <td>C04 Quality & Measurement</td>
                   <td>checkpoint C04</td>
                   <td>
-                    <span className="em-red">dodáno 2026-11-02 (PR #15), po C06</span>
+                    <span className="em-red">dodáno 2026-11-02 (5bc56b0), po C06</span>
                   </td>
                   <td>
                     <Todo />
@@ -871,7 +871,7 @@ export default function TechnicalDesignReview() {
                 <tr>
                   <td>Reporting tag + běh všech checks</td>
                   <td>před obhajobou</td>
-                  <td>čeká na merge PR #15</td>
+                  <td>čeká na merge do main a měření QC</td>
                   <td>
                     <Todo />
                   </td>
@@ -889,7 +889,7 @@ export default function TechnicalDesignReview() {
             <div style={{ display: 'grid', gap: 24 }}>
               <div className="card">
                 <span className="tag">KRITICKÁ ZÁVISLOST</span>
-                <p>Měření QC čeká na merge PR #15; reporting tag čeká na obojí.</p>
+                <p>Měření QC je kritická cesta: reporting tag a nový běh checks mají smysl až po něm.</p>
               </div>
               <div className="card" style={{ borderColor: 'var(--rejected)', borderWidth: 3 }}>
                 <span className="tag" style={{ color: 'var(--rejected)' }}>
@@ -999,7 +999,7 @@ export default function TechnicalDesignReview() {
               <ul className="clean small">
                 <li>OP-01 – OP-05 implementováno, test:c02 31/31, test:c05 20/20</li>
                 <li>Architektura a DD odpovídají kódu (C06: A1–A4, D1–D5 YES)</li>
-                <li>C04 kritérium a rozhodnutí zapsány (PR #15)</li>
+                <li>C04 kritérium a rozhodnutí zapsány (5bc56b0)</li>
               </ul>
             </div>
             <div className="card">
