@@ -746,15 +746,38 @@ export default function TechnicalDesignReview() {
       {/* ---------------------------------------------------------- */}
 
       <Slide notes="Část C, 5–7 minut. Stejný projekt a stejný stav jako část A, ale pohled řízení: stav, termíny, rizika, rozhodnutí.">
-        <Frame dark section="Project Status">
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <span className="tag" style={{ color: '#34d399' }}>
-              ČÁST C · PROJECT STATUS REPORT
-            </span>
-            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Skutečný stav, ne seznam aktivit.</h1>
-            <p className="lede mono" style={{ fontSize: 26 }}>
-              stav k {STATUS_AS_OF}
-            </p>
+        <Frame section="Project Status">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr', gap: 96, alignItems: 'center', flex: 1 }}>
+            <div>
+              <div className="row" style={{ marginBottom: 40 }}>
+                <BrandMark />
+              </div>
+              <h1 style={{ fontSize: 120 }}>
+                Project
+                <br />
+                Status Report
+              </h1>
+              <p className="lede" style={{ fontSize: 36, color: 'var(--ink-2)', marginTop: 36 }}>
+                Skutečný stav, ne seznam aktivit.
+              </p>
+              <p className="mono muted" style={{ fontSize: 22, marginTop: 56 }}>
+                stav k {STATUS_AS_OF}
+              </p>
+            </div>
+            <div className="card" style={{ display: 'grid', gap: 0, padding: '18px 40px' }}>
+              {['Executive Status', 'Scope & Delivery', 'Schedule & Resources', 'Top Risks & Issues', 'Next Action Plan', 'Decision & Outlook'].map((t, i) => (
+                <div
+                  key={t}
+                  className="row"
+                  style={{ gap: 28, padding: '22px 0', borderTop: i ? '1px solid var(--line)' : undefined }}
+                >
+                  <span className="mono em-green" style={{ fontSize: 24, fontWeight: 600 }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ fontFamily: 'var(--head)', fontSize: 32, fontWeight: 650 }}>{t}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </Frame>
       </Slide>
