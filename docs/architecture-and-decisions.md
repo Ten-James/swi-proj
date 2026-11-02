@@ -16,6 +16,16 @@ zde je struktura podle zadání s odkazy.
   [§ I–M](c03/architecture.md#i-cross-view-consistency-check)
 - Evidence: [evidence-and-evolution.md § C03](evidence-and-evolution.md#c03--architecture-evidence)
 
+## C04 Quality & Measurement
+
+Plné znění: [c04/quality-and-measurement.md](c04/quality-and-measurement.md).
+
+**Quality concern:** integrita dat pod souběhem (`BR-02`, `BR-04`, `REQ-07`,
+`REQ-10`). **Criteria:** QC-01 až QC-04 s PASS/FAIL oracle.
+**Measurement:** `npm run test:c02` proti `next build` + `next start` na čisté
+SQLite. **Decision:** ponechat ADR-001 a přehodnotit při kterémkoli FAIL nebo při
+nasazení s více procesy.
+
 ## C05 Detailed Design
 
 Plné znění: [c05/detailed-design.md](c05/detailed-design.md).

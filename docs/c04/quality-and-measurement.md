@@ -45,7 +45,7 @@ Kritérium je formulováno tak, aby šlo rozhodnout PASS/FAIL bez interpretace.
 |---|---|---|
 | `QC-01` | Souběžné konfliktní Create (`REQ-07`, `BR-02`) | z `K` současných `POST /api/reservations` různých Userů na stejného Agenta (`requiresApproval = false`) a stejný interval: právě 1× `201 CONFIRMED`, `K-1`× `409 AGENT_UNAVAILABLE`, 0× `5xx`; v DB existuje pro tento interval právě 1 `CONFIRMED` |
 | `QC-02` | Souběžné konfliktní Approve (`REQ-10`, `BR-02`) | ze 2 současných `PATCH …/decision APPROVE` na dvě překrývající se `PENDING_APPROVAL`: právě 1× `200`, 1× `409`; neúspěšná zůstává `PENDING_APPROVAL` |
-| `QC-03` | Souběžné Create proti limitu (`BR-04`) | User s `maxReservations = N` a `N-1` aktivními Reservation pošle současně `K` neprekrývajících se Create: nejvýše 1× `201`, zbytek `403 QUOTA_EXCEEDED`; v DB má User nejvýše `N` aktivních |
+| `QC-03` | Souběžné Create proti limitu (`BR-04`) | User s `maxReservations = N` a `N-1` aktivními Reservation pošle současně `K` nepřekrývajících se Create: právě 1× `201`, `K-1`× `403 QUOTA_EXCEEDED`; v DB má User právě `N` aktivních |
 | `QC-04` | Invariant v DB po měření | dotaz nad tabulkou Reservation vrátí 0 dvojic `CONFIRMED` stejného Agenta s `a.startTime < b.endTime AND a.endTime > b.startTime` |
 
 **Cílová hodnota:** 0 porušení ve všech opakováních. Jakékoli jedno porušení =
@@ -93,33 +93,39 @@ na tom, že SQLite serializuje zápisové transakce jednoho procesu. Měření p
 |---|---|---|
 | `QC-01` (`K = 2`) | YES | `scripts/c02-verification.ts` – „OP-03 allows at most one concurrent conflicting Create“ |
 | `QC-02` | YES | `scripts/c02-verification.ts` – „REQ-10 allows at most one conflicting concurrent approval“ |
-| `QC-01` (`K = 10`) | NO | – (rozšíření C02 skriptu, viz § 6) |
-| `QC-03` | NO | „BR-04 counts PENDING_APPROVAL …“ ověřuje limit jen sekvenčně |
-| `QC-04` | PARTLY | nepřímo přes HTTP statusy; přímý dotaz nad DB zatím neexistuje |
+| `QC-01` (`K = 10`) | YES | `scripts/c02-verification.ts` – „C04 QC-01 10 concurrent conflicting Creates confirm exactly one (x5)“ |
+| `QC-03` | YES | `scripts/c02-verification.ts` – „C04 QC-03 10 concurrent Creates cannot exceed the BR-04 limit (x5)“ |
+| `QC-04` | YES | `scripts/c02-verification.ts` – „C04 QC-04 database holds no overlapping CONFIRMED Reservations“ (celá DB, po všech scénářích) |
 
 Unit testy C05 (`npm run test:c05`) tento concern záměrně nepokrývají – policy je
 čistá funkce a souběh vzniká až v transakci (C05 § 10, collaboration řádek).
 
 ## 4. Výsledky měření
 
-Zdroj: zaznamenané běhy C02 sady ([evidence-and-evolution.md](../evidence-and-evolution.md#code-review-fixes--specification-baseline-v021)),
-2026-10-19, čistá SQLite, `next build` + `next start`, dva běhy po sobě.
+### 4.1 Rozšířené měření (2026-11-02)
+
+Běh `npm run test:c02` 2026-11-02 13:40 UTC na commitu `046bc8c`: čistá SQLite
+(`db:deploy` + `db:seed`), `next build` + `next start` (jeden proces, port 3100),
+`API_URL=http://localhost:3100`. Výsledek sady: **34/34 PASS**, `C02 verification PASSED`.
 
 | Criterion | `K` | Opakování | Očekávání | Pozorováno | Výsledek |
 |---|---|---|---|---|---|
-| `QC-01` | 2 | 2 | `[201, 409]` | `[201, 409]` v obou bězích | **PASS** |
-| `QC-02` | 2 | 2 | `[200, 409]` | `[200, 409]` v obou bězích | **PASS** |
-| `QC-01` | 10 | – | 1× 201, 9× 409, 0× 5xx | neměřeno | **OPEN** |
-| `QC-03` | 10 | – | ≤ 1× 201 | neměřeno | **OPEN** |
-| `QC-04` | – | – | 0 dvojic | neměřeno přímo | **OPEN** |
+| `QC-01` | 10 | 5 | 1× 201, 9× 409 `AGENT_UNAVAILABLE`, 0× 5xx; 1 `CONFIRMED` v DB | ve všech 5 opakováních | **PASS** |
+| `QC-03` | 10 | 5 | 1× 201, 9× 403 `QUOTA_EXCEEDED`; User má právě `N` aktivních | ve všech 5 opakováních | **PASS** |
+| `QC-04` | – | 1 | 0 dvojic překrývajících se `CONFIRMED` v celé DB | 0 dvojic | **PASS** |
+| `QC-01` | 2 | 1 | `[201, 409]` | `[201, 409]` | **PASS** |
+| `QC-02` | 2 | 1 | `[200, 409]` | `[200, 409]` | **PASS** |
 
-**Baseline měření:** commit `d2b1784` (main, obsahuje v0.2.1 opravy z PR #13).
-Kód `ReservationService` se mezi během 2026-10-19 a touto baseline neměnil.
+### 4.2 Původní měření (2026-10-19)
 
-**Interpretace:** pro minimální souběh (`K = 2`) kritérium platí pro Create i
-Approve. Tvrzení „`BR-02` drží pod souběhem obecně“ zatím podložené **není** –
-dvojice požadavků může náhodně doběhnout sekvenčně, takže `K = 2` je slabé
-měření. `BR-04` pod souběhem není ověřeno vůbec.
+Zdroj: zaznamenané běhy C02 sady ([evidence-and-evolution.md](../evidence-and-evolution.md#code-review-fixes--specification-baseline-v021)),
+čistá SQLite, `next build` + `next start`, dva běhy po sobě: `QC-01` a `QC-02`
+pro `K = 2` **PASS**.
+
+**Interpretace:** při 10 souběžných požadavcích v pěti opakováních nevzniklo
+žádné porušení `BR-02` ani `BR-04` a databáze neobsahuje překrývající se
+`CONFIRMED`. Kritéria `QC-01` až `QC-04` platí v deklarovaném kontextu (jeden
+proces, SQLite). Neplatí to automaticky pro nasazení s více procesy (§ 6).
 
 ## 5. Trade-off
 
@@ -138,21 +144,21 @@ A vylučoval (C03 driver list neobsahuje škálování).
 ## 6. Engineering decision
 
 **Rozhodnutí:** ponechat variantu **A** (serializované transakce v jednom
-procesu, ADR-001) a **neměnit kód**. Rozšířit měření, protože dnešní evidence
-(`K = 2`) nestačí na obecné tvrzení.
+procesu, ADR-001) a **neměnit kód**.
 
-**Proč odpovídá výsledku měření:** všechna provedená měření prošla a žádné
-nevykázalo porušení `BR-02`; zároveň chybí evidence pro vyšší souběh a pro
-`BR-04`, takže rozhodnutí je podmíněné, ne konečné.
+**Proč odpovídá výsledku měření:** všechna kritéria `QC-01`–`QC-04` prošla i pro
+`K = 10` v pěti opakováních; varianta A tedy v deklarovaném kontextu splňuje
+concern bez dodatečných zámků nebo retry. Změnu by vyžádal až některý z triggerů
+níže.
 
 **Akce:**
 
 | # | Akce | Criterion | Stav |
 |---|---|---|---|
-| 1 | Rozšířit C02 scénář souběžného Create na `K = 10`, `R = 5` | `QC-01` | TODO |
-| 2 | Přidat scénář souběžného Create proti limitu `BR-04` | `QC-03` | TODO |
-| 3 | Přidat přímou kontrolu invariantu nad DB na konci C02 sady | `QC-04` | TODO |
-| 4 | Doplnit výsledky do § 4 a evidence | všechny | TODO |
+| 1 | Rozšířit C02 scénář souběžného Create na `K = 10`, `R = 5` | `QC-01` | DONE – test napsán |
+| 2 | Přidat scénář souběžného Create proti limitu `BR-04` | `QC-03` | DONE – test napsán |
+| 3 | Přidat přímou kontrolu invariantu nad DB na konci C02 sady | `QC-04` | DONE – test napsán |
+| 4 | Spustit `npm run test:c02` podle § 3 a doplnit výsledky do § 4 a evidence | všechny | DONE – 2026-11-02, 34/34 PASS |
 
 **Podmínky přehodnocení (trigger na variantu B/C):**
 
@@ -165,15 +171,15 @@ nevykázalo porušení `BR-02`; zároveň chybí evidence pro vyšší souběh a
 
 | Requirement / rule | Concern | Criterion | Measurement | Design owner | Decision |
 |---|---|---|---|---|---|
-| `REQ-07`, `BR-02` | integrita pod souběhem | `QC-01`, `QC-04` | C02 „OP-03 … concurrent conflicting Create“ (+ akce 1, 3) | `ReservationService.createReservation` (C05 § 7) | A, podmíněně |
+| `REQ-07`, `BR-02` | integrita pod souběhem | `QC-01`, `QC-04` | C02 „OP-03 … concurrent conflicting Create“, „C04 QC-01“, „C04 QC-04“ | `ReservationService.createReservation` (C05 § 7) | A |
 | `REQ-10`, `BR-02` | integrita pod souběhem | `QC-02`, `QC-04` | C02 „REQ-10 … concurrent approval“ | `ReservationService.decideReservation` (C05 § 6) | A |
-| `BR-04` | integrita pod souběhem | `QC-03` | chybí (akce 2) | `createReservation` + `assertWithinQuota` | A, neověřeno |
+| `BR-04` | integrita pod souběhem | `QC-03` | C02 „C04 QC-03“ | `createReservation` + `assertWithinQuota` | A |
 
 ## 8. Zbývající riziko
 
-- Bez akcí 1–3 je tvrzení o integritě pod souběhem podložené jen minimálním
-  měřením (`K = 2`).
+- `K = 10` neprokazuje chování pod libovolnou zátěží; prokazuje, že serializace
+  zápisů v deklarovaném kontextu drží i při desetinásobném souběhu.
 - Měření běží na jednom stroji; neměří síťové zpoždění ani více instancí – to je
   v souladu s ADR-001, ale nepřenositelné na jiné nasazení.
 - `QC-04` přes HTTP statusy nepozná chybu, kdy by API vrátilo `409`, ale zápis
-  přesto proběhl; proto je potřeba přímá kontrola DB (akce 3).
+  přesto proběhl; proto existuje přímá kontrola DB (akce 3).

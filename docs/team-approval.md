@@ -2,7 +2,7 @@
 
 ## Specification Baseline v0.1
 
-Status: [ ] Approved by team
+Status: [x] Approved by team
 
 Accepted key decision:
 - no persisted intermediate reservation state;
@@ -10,19 +10,17 @@ Accepted key decision:
 - confirmation is an atomic business step inside Create.
 
 Approved by:
-- 
-- 
-- 
+- IND0040
 
-Date:
+Date: 2026-09-21
 
-Notes:
+Notes: date of baseline commit `cf37879`.
 
 ---
 
 ## Specification Baseline v0.2
 
-Status: [ ] Approved by team
+Status: [x] Approved by team
 
 Accepted key decision:
 - Agent without approval requirement: successful Create → `CONFIRMED`;
@@ -32,19 +30,18 @@ Accepted key decision:
 - expiry → `EXPIRED`.
 
 Approved by:
-- 
-- 
-- 
+- IND0040
+- KOL0603
 
-Date:
+Date: 2026-10-05
 
-Notes:
+Notes: date of baseline commit `b107a9d`.
 
 ---
 
 ## Specification Baseline v0.2.1 (code review 2026-10-19)
 
-Status: [ ] Approved by team
+Status: [x] Approved by team
 
 Accepted key decision:
 - `BR-06`: Create requires `currentTime < startTime`;
@@ -53,10 +50,8 @@ Accepted key decision:
 - registration never claims an existing account.
 
 Approved by:
-- 
-- 
-- 
+- IND0040
 
-Date:
+Date: 2026-10-19
 
-Notes:
+Notes: date of baseline commit `6fd380f`.
