@@ -54,7 +54,7 @@ operace OP-05 a aktér Admin; nové koncové stavy `REJECTED` a `EXPIRED`
 
 **Zbývající předpoklad / neznámá:** expirace se perzistuje líně (při dalším
 čtení nebo rozhodnutí), ne časovačem. Vytvoření Reservation s `startTime` v
-minulosti bylo neošetřené; ve v0.2.1 řeší `BR-06` (čeká na schválení týmem).
+minulosti bylo neošetřené; ve v0.2.1 řeší `BR-06` (schváleno, viz [team-approval.md](team-approval.md)).
 
 **Architektonické drivery přenesené do C03:** souběžné Create/Approve vs.
 `BR-02`; perzistentní čekající schválení přežívající request; jednotný vlastník
@@ -300,5 +300,33 @@ Spuštěno 2026-10-19 na čisté SQLite (`db:deploy` + `db:seed`) a `next dev`:
 
 - Throttle je v paměti procesu – platí jen pro jednoprocesové nasazení dle
   ADR-001; útočník jím může dočasně zablokovat přihlášení cizího e-mailu.
-- `BR-06` a v0.2.1 čekají na schválení týmem ([team-approval.md](team-approval.md)).
+- `BR-06` a v0.2.1 byly schváleny týmem ([team-approval.md](team-approval.md)).
 
+## C04 — Quality & Measurement Evidence
+
+Plné znění: [c04/quality-and-measurement.md](c04/quality-and-measurement.md).
+
+- Quality concern: integrita dat pod souběhem (`BR-02`, `BR-04`, `REQ-07`, `REQ-10`).
+- Kritéria `QC-01`–`QC-04` jsou scénáře `C04 …` v `scripts/c02-verification.ts`.
+
+### Měření
+
+Spuštěno 2026-11-02 na commitu `046bc8c`, čistá SQLite (`db:deploy` + `db:seed`),
+`next build` + `next start`, `API_URL=http://localhost:3100`:
+
+| Kontrola | Výsledek |
+|---|---|
+| `npm run test:c02` | **PASS** — 34/34 (31 původních + `QC-01`, `QC-03`, `QC-04`) |
+| `QC-01` — 10 souběžných konfliktních Create, 5 opakování | **PASS** — vždy 1× 201, 9× 409 `AGENT_UNAVAILABLE` |
+| `QC-03` — 10 souběžných Create proti limitu `BR-04`, 5 opakování | **PASS** — vždy 1× 201, 9× 403 `QUOTA_EXCEEDED` |
+| `QC-04` — překryv `CONFIRMED` v celé DB | **PASS** — 0 dvojic |
+
+### Rozhodnutí
+
+Ponechat ADR-001 (serializované transakce v jednom procesu) beze změny kódu.
+Přehodnotit při FAIL kteréhokoli `QC` nebo při nasazení s více procesy / jinou DB.
+
+### Schválení specifikace (C06 F3)
+
+Baseline v0.1, v0.2 a v0.2.1 schváleny v [team-approval.md](team-approval.md)
+(IND0040, v0.2 také KOL0603; data podle commitů `cf37879`, `b107a9d`, `6fd380f`).
