@@ -335,6 +335,7 @@ svg.dia [data-region-highlighted='true'] .edge.bad { stroke-width: 4; }
 }
 
 .code-panel pre { font-family: var(--mono); background: transparent !important; }
+.code-panel pre code { display: block; background: none; padding: 0; border-radius: 0; }
 .code-panel [data-highlighted='true'] { background: rgba(5, 150, 105, 0.12) !important; border-left: 4px solid var(--confirmed); margin-left: -20px; padding-left: 16px; }
 .code-panel [data-dimmed='true'] { opacity: 1 !important; }
 
