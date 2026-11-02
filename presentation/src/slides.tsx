@@ -196,7 +196,6 @@ export default function TechnicalDesignReview() {
                 <span className="tag">ROLE · AR-01</span>
                 <p>
                   <b style={{ color: 'var(--ink)' }}>User</b> vytváří a ruší vlastní Reservation. <b style={{ color: 'var(--ink)' }}>Admin</b> schvaluje / zamítá (OP-05).
-                  Identita z HttpOnly Session, nikdy z těla požadavku.
                 </p>
               </div>
               <div className="card">
