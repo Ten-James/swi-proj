@@ -3,13 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppHeader, { type SessionUser } from "@/components/app-header";
-
-type ReservationStatus =
-  | "PENDING_APPROVAL"
-  | "CONFIRMED"
-  | "CANCELLED"
-  | "REJECTED"
-  | "EXPIRED";
+import StatusBadge, { reservationStatuses, type ReservationStatus } from "@/components/status-badge";
+import { formatDay, formatRange, formatTime } from "@/lib/format";
 
 interface Agent {
   id: string;
@@ -27,26 +22,11 @@ interface Reservation {
   agent: { id: string; name: string; requiresApproval: boolean };
 }
 
-const statusColors: Record<ReservationStatus, string> = {
-  PENDING_APPROVAL: "bg-amber-400 text-amber-950",
-  CONFIRMED: "bg-emerald-600 text-white",
-  CANCELLED: "bg-slate-400 text-white",
-  REJECTED: "bg-rose-600 text-white",
-  EXPIRED: "bg-violet-600 text-white",
-};
-
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? `Request failed with status ${response.status}`);
   return data as T;
-}
-
-function formatDate(value: string | number) {
-  return new Intl.DateTimeFormat("cs-CZ", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 
 export default function ReservationApp({ user }: { user: SessionUser | null }) {
@@ -119,8 +99,17 @@ export default function ReservationApp({ user }: { user: SessionUser | null }) {
     }
     const grouped = [...byAgent.values()];
     const ticks = Array.from({ length: 5 }, (_, index) => min + (span * index) / 4);
-    return { min, span, grouped, ticks };
+    const singleDay = new Date(min).toDateString() === new Date(max).toDateString();
+    return { min, span, grouped, ticks, singleDay };
   }, [reservations]);
+
+  const summary = useMemo(
+    () => ({
+      confirmed: reservations.filter((reservation) => reservation.status === "CONFIRMED").length,
+      pending: reservations.filter((reservation) => reservation.status === "PENDING_APPROVAL").length,
+    }),
+    [reservations],
+  );
 
   function resetFeedback() {
     setError(null);
@@ -190,145 +179,198 @@ export default function ReservationApp({ user }: { user: SessionUser | null }) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 pb-14">
+    <>
       <AppHeader user={user} />
-
-      <section className="py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">Rezervace AI agentů</h1>
-        <p className="mt-2 max-w-2xl text-gray-600 dark:text-gray-300">
-          Vyberte agenta, ověřte jeho dostupnost a rezervujte si čas pro svou práci.
-        </p>
-      </section>
-
-      {loadError && <p className="mb-8 rounded-lg bg-red-50 p-4 text-sm text-red-700">{loadError}</p>}
-
-      <section>
-        <div className="mb-4 flex items-end justify-between gap-4">
+      <main className="mx-auto w-full max-w-6xl px-5 pb-20">
+        <section className="grid gap-8 pt-14 pb-10 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <h2 className="text-xl font-semibold">Dostupní agenti</h2>
-            <p className="text-sm text-gray-500">
-              Každého agenta lze v jednom čase rezervovat pouze jednou.
+            <h1 className="text-4xl font-semibold tracking-tight text-ink md:text-5xl">Rezervace AI agentů</h1>
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-muted">
+              Vyberte agenta, ověřte jeho dostupnost a rezervujte si čas pro svou práci.
             </p>
           </div>
-          {loading && <span className="text-sm text-gray-500">Načítám…</span>}
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {agents.map((agent) => (
-            <article key={agent.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-medium">{agent.name}</h3>
-                <span className={`rounded-full px-2 py-1 text-xs font-medium ${agent.requiresApproval ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
-                  {agent.requiresApproval ? "Vyžaduje schválení" : "Okamžité potvrzení"}
-                </span>
+          <dl className="flex divide-x divide-line rounded-xl border border-line bg-surface">
+            {[
+              ["Agenti", agents.length],
+              ["Potvrzené", summary.confirmed],
+              ["Čekající", summary.pending],
+            ].map(([label, value]) => (
+              <div key={label} className="px-6 py-3">
+                <dt className="text-xs text-ink-subtle">{label}</dt>
+                <dd className="mt-0.5 font-mono text-2xl font-medium tabular-nums text-ink">{loading ? "-" : value}</dd>
               </div>
-              {agent.description && <p className="mt-2 text-sm text-gray-500">{agent.description}</p>}
-            </article>
-          ))}
-        </div>
-      </section>
+            ))}
+          </dl>
+        </section>
 
-      <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold">Přehled rezervací</h2>
-        {!timeline ? (
-          <p className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-            Zatím nejsou vytvořené žádné rezervace.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-            <div className="min-w-[760px]">
-              <div className="ml-40 flex justify-between text-[11px] text-gray-500">
-                {timeline.ticks.map((tick) => <span key={tick}>{formatDate(tick)}</span>)}
-              </div>
-              <div className="mt-2 grid gap-2">
-                {timeline.grouped.map(({ agent, reservations: agentReservations }) => (
-                  <div key={agent.id} className="grid grid-cols-[150px_1fr] gap-3">
-                    <div className="pt-3 text-sm font-medium">{agent.name}</div>
-                    <div className="relative rounded-md bg-gray-100 dark:bg-gray-900" style={{ height: Math.max(46, agentReservations.length * 30 + 12) }}>
-                      {agentReservations.map((reservation, index) => {
-                        const start = new Date(reservation.startTime).getTime();
-                        const end = new Date(reservation.endTime).getTime();
-                        const left = ((start - timeline.min) / timeline.span) * 100;
-                        const width = Math.max(((end - start) / timeline.span) * 100, 2);
-                        return (
-                          <div
-                            key={reservation.id}
-                            className={`absolute h-6 overflow-hidden rounded px-2 py-1 text-[10px] font-semibold ${statusColors[reservation.status]}`}
-                            style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%`, top: index * 30 + 8 }}
-                            title={`${reservation.status}: ${formatDate(reservation.startTime)} – ${formatDate(reservation.endTime)}`}
-                          >
-                            {reservation.status}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {loadError && <p className="notice notice-error mb-8">{loadError}</p>}
+
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold tracking-tight">Dostupní agenti</h2>
+            <p className="mt-1 text-sm text-ink-muted">Každého agenta lze v jednom čase rezervovat pouze jednou.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {loading && [0, 1, 2, 3].map((index) => <div key={index} className="skeleton h-[92px]" />)}
+            {agents.map((agent) => (
+              <article key={agent.id} className="panel p-5 transition hover:border-line-strong">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-medium text-ink">{agent.name}</h3>
+                  <span className={`status font-sans text-xs tracking-normal ${agent.requiresApproval ? "status-PENDING_APPROVAL" : "status-CONFIRMED"}`}>
+                    {agent.requiresApproval ? "Vyžaduje schválení" : "Okamžité potvrzení"}
+                  </span>
+                </div>
+                {agent.description && <p className="mt-2 text-sm text-ink-muted">{agent.description}</p>}
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-14">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Přehled rezervací</h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                {timeline?.singleDay ? formatDay(timeline.min) : "Obsazenost agentů v čase."}
+              </p>
             </div>
-          </div>
-        )}
-      </section>
-
-      {user ? (
-        <section className="mt-10 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
-            <h2 className="mb-4 text-xl font-semibold">Nová rezervace</h2>
-            <form onSubmit={createReservation} className="grid gap-4 rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-              <label className="grid gap-1 text-sm font-medium">
-                Agent
-                <select required value={agentId} onChange={(event) => setAgentId(event.target.value)} className="field">
-                  {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-                </select>
-              </label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1 text-sm font-medium">Začátek<input required type="datetime-local" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="field" /></label>
-                <label className="grid gap-1 text-sm font-medium">Konec<input required type="datetime-local" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="field" /></label>
-              </div>
-              <label className="grid gap-1 text-sm font-medium">Poznámka (volitelné)<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="field" /></label>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={checkAvailability} className="button-secondary">Ověřit dostupnost</button>
-                <button type="submit" disabled={submitting || !agentId} className="button-primary">{submitting ? "Vytvářím…" : "Vytvořit rezervaci"}</button>
-              </div>
-              {availability && <p className={`text-sm font-semibold ${availability === "AVAILABLE" ? "text-emerald-700" : "text-rose-700"}`}>Dostupnost: {availability === "AVAILABLE" ? "volná" : "obsazená"}</p>}
-            </form>
-          </div>
-
-          <div>
-            <h2 className="mb-4 text-xl font-semibold">Moje rezervace</h2>
-            <div className="grid gap-3">
-              {myReservations.length === 0 && <p className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">Nemáte žádné rezervace.</p>}
-              {myReservations.map((reservation) => (
-                <article key={reservation.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-medium">{reservation.agent.name}</h3>
-                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[reservation.status]}`}>{reservation.status}</span>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-500">{formatDate(reservation.startTime)} – {formatDate(reservation.endTime)}</p>
-                    </div>
-                    {(reservation.status === "CONFIRMED" || reservation.status === "PENDING_APPROVAL") && (
-                      <button type="button" onClick={() => cancelReservation(reservation.id)} disabled={activeAction !== null} className="button-secondary">Zrušit</button>
-                    )}
-                  </div>
-                </article>
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-ink-muted">
+              {reservationStatuses.map((status) => (
+                <li key={status} className="flex items-center gap-1.5 font-mono">
+                  <span className={`size-2.5 rounded-[3px] bar-${status}`} />
+                  {status}
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
+          {loading ? (
+            <div className="skeleton h-64" />
+          ) : !timeline ? (
+            <p className="rounded-xl border border-dashed border-line-strong p-10 text-center text-sm text-ink-muted">
+              Zatím nejsou vytvořené žádné rezervace.
+            </p>
+          ) : (
+            <div className="panel overflow-x-auto p-5">
+              <div className="min-w-[760px]">
+                <div className="relative ml-[168px] h-5 font-mono text-[11px] text-ink-subtle">
+                  {timeline.ticks.map((tick, index) => (
+                    <span
+                      key={tick}
+                      className="absolute top-0 -translate-x-1/2 whitespace-nowrap first:translate-x-0 last:-translate-x-full"
+                      style={{ left: `${index * 25}%` }}
+                    >
+                      {timeline.singleDay ? formatTime(tick) : `${formatDay(tick)} ${formatTime(tick)}`}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {timeline.grouped.map(({ agent, reservations: agentReservations }) => (
+                    <div key={agent.id} className="grid grid-cols-[156px_1fr] items-start gap-3">
+                      <div className="pt-3 text-sm font-medium text-ink">{agent.name}</div>
+                      <div
+                        className="relative rounded-lg bg-surface-2"
+                        style={{ height: Math.max(48, agentReservations.length * 34 + 14) }}
+                      >
+                        {[25, 50, 75].map((position) => (
+                          <span key={position} className="absolute inset-y-0 w-px bg-line" style={{ left: `${position}%` }} />
+                        ))}
+                        {agentReservations.map((reservation, index) => {
+                          const start = new Date(reservation.startTime).getTime();
+                          const end = new Date(reservation.endTime).getTime();
+                          const left = ((start - timeline.min) / timeline.span) * 100;
+                          const width = Math.max(((end - start) / timeline.span) * 100, 2);
+                          return (
+                            <div
+                              key={reservation.id}
+                              className={`absolute h-7 truncate rounded-md px-2.5 font-mono text-[11px] font-medium leading-7 shadow-sm bar-${reservation.status}`}
+                              style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%`, top: index * 34 + 10 }}
+                              title={`${reservation.status}: ${formatRange(reservation.startTime, reservation.endTime)}`}
+                            >
+                              {reservation.status}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
-      ) : (
-        <section className="mt-10 rounded-2xl bg-gray-950 px-6 py-8 text-white dark:bg-gray-100 dark:text-gray-950">
-          <h2 className="text-xl font-semibold">Chcete vytvořit rezervaci?</h2>
-          <p className="mt-2 text-sm text-gray-300 dark:text-gray-600">
-            Přihlaste se nebo si během chvíle vytvořte účet.
-          </p>
-          <Link href="/login" className="mt-5 inline-block rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-950 dark:bg-gray-950 dark:text-white">
-            Přihlášení a registrace
-          </Link>
-        </section>
-      )}
 
-      {(result || error) && <section className={`mt-8 rounded-lg p-4 text-sm ${error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>{error ?? result}</section>}
-    </main>
+        {user ? (
+          <section className="mt-14">
+            {(result || error) && (
+              <p role="status" className={`notice mb-6 ${error ? "notice-error" : "notice-success"}`}>
+                {error ?? result}
+              </p>
+            )}
+            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+              <form onSubmit={createReservation} className="panel grid gap-5 p-6">
+                <h2 className="text-lg font-semibold tracking-tight">Nová rezervace</h2>
+                <label className="field-label">
+                  Agent
+                  <select required value={agentId} onChange={(event) => setAgentId(event.target.value)} className="field">
+                    {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+                  </select>
+                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="field-label">Začátek<input required type="datetime-local" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="field" /></label>
+                  <label className="field-label">Konec<input required type="datetime-local" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="field" /></label>
+                </div>
+                <label className="field-label">Poznámka (volitelné)<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} className="field resize-none" /></label>
+                <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+                  <button type="button" onClick={checkAvailability} className="button-secondary">Ověřit dostupnost</button>
+                  <button type="submit" disabled={submitting || !agentId} className="button-primary">{submitting ? "Vytvářím…" : "Vytvořit rezervaci"}</button>
+                  {availability && (
+                    <span className={`status ml-auto font-sans text-xs tracking-normal ${availability === "AVAILABLE" ? "status-CONFIRMED" : "status-REJECTED"}`}>
+                      Dostupnost: {availability === "AVAILABLE" ? "volná" : "obsazená"}
+                    </span>
+                  )}
+                </div>
+              </form>
+
+              <div className="panel flex flex-col">
+                <div className="flex items-center justify-between border-b border-line px-6 py-5">
+                  <h2 className="text-lg font-semibold tracking-tight">Moje rezervace</h2>
+                  <span className="font-mono text-sm text-ink-subtle">{myReservations.length}</span>
+                </div>
+                {myReservations.length === 0 ? (
+                  <p className="px-6 py-10 text-center text-sm text-ink-muted">Nemáte žádné rezervace.</p>
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {myReservations.map((reservation) => (
+                      <li key={reservation.id} className="flex items-center justify-between gap-4 px-6 py-4">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-medium text-ink">{reservation.agent.name}</h3>
+                            <StatusBadge status={reservation.status} />
+                          </div>
+                          <p className="mt-1 text-sm tabular-nums text-ink-muted">{formatRange(reservation.startTime, reservation.endTime)}</p>
+                        </div>
+                        {(reservation.status === "CONFIRMED" || reservation.status === "PENDING_APPROVAL") && (
+                          <button type="button" onClick={() => cancelReservation(reservation.id)} disabled={activeAction !== null} className="button-secondary h-9 px-3">Zrušit</button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="panel mt-14 flex flex-wrap items-center justify-between gap-6 p-6">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Chcete vytvořit rezervaci?</h2>
+              <p className="mt-1 text-sm text-ink-muted">Přihlaste se nebo si během chvíle vytvořte účet.</p>
+            </div>
+            <Link href="/login" className="button-primary">
+              Přihlášení a registrace
+            </Link>
+          </section>
+        )}
+      </main>
+    </>
   );
 }

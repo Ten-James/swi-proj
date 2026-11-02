@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BrandMark } from "@/components/app-header";
 
 type Mode = "login" | "register";
 
@@ -36,48 +37,63 @@ export default function LoginForm() {
     }
   }
 
+  const modeButton = (value: Mode, label: string) => (
+    <button
+      type="button"
+      onClick={() => setMode(value)}
+      aria-pressed={mode === value}
+      className={`h-9 rounded-lg px-3 text-sm font-medium transition ${mode === value ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md px-5 py-10">
-      <Link href="/" className="text-sm text-gray-500 hover:text-gray-950 dark:hover:text-white">
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col px-5 py-10">
+      <Link href="/" className="text-sm text-ink-muted transition hover:text-ink">
         ← Zpět na přehled
       </Link>
-      <section className="mt-10 rounded-2xl border border-gray-200 p-6 shadow-sm dark:border-gray-800">
-        <h1 className="text-2xl font-semibold">{mode === "login" ? "Přihlášení" : "Vytvoření účtu"}</h1>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="mt-16 flex items-center gap-3 text-[15px] font-semibold tracking-tight">
+        <BrandMark />
+        Agent Reservations
+      </div>
+      <section className="panel mt-6 p-6">
+        <h1 className="text-2xl font-semibold tracking-tight">{mode === "login" ? "Přihlášení" : "Vytvoření účtu"}</h1>
+        <p className="mt-1.5 text-sm text-ink-muted">
           {mode === "login" ? "Přihlaste se ke svým rezervacím." : "Zaregistrujte se pro vytváření rezervací."}
         </p>
 
-        <div className="mt-6 grid grid-cols-2 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
-          <button type="button" onClick={() => setMode("login")} className={`rounded-md px-3 py-2 text-sm font-medium ${mode === "login" ? "bg-white shadow-sm dark:bg-gray-800" : "text-gray-500"}`}>Přihlášení</button>
-          <button type="button" onClick={() => setMode("register")} className={`rounded-md px-3 py-2 text-sm font-medium ${mode === "register" ? "bg-white shadow-sm dark:bg-gray-800" : "text-gray-500"}`}>Registrace</button>
+        <div className="mt-6 grid grid-cols-2 rounded-xl border border-line bg-surface-2 p-1">
+          {modeButton("login", "Přihlášení")}
+          {modeButton("register", "Registrace")}
         </div>
 
         <form onSubmit={submit} className="mt-6 grid gap-4">
           {mode === "register" && (
-            <label className="grid gap-1 text-sm font-medium">
+            <label className="field-label">
               Jméno
               <input value={name} onChange={(event) => setName(event.target.value)} required minLength={2} maxLength={100} className="field" autoComplete="name" />
             </label>
           )}
-          <label className="grid gap-1 text-sm font-medium">
+          <label className="field-label">
             E-mail
             <input value={email} onChange={(event) => setEmail(event.target.value)} required type="email" className="field" autoComplete="email" />
           </label>
-          <label className="grid gap-1 text-sm font-medium">
+          <label className="field-label">
             Heslo
             <input value={password} onChange={(event) => setPassword(event.target.value)} required type="password" minLength={8} className="field" autoComplete={mode === "login" ? "current-password" : "new-password"} />
-            {mode === "register" && <span className="text-xs font-normal text-gray-500">Minimálně 8 znaků, jedno písmeno a jedna číslice.</span>}
+            {mode === "register" && <span className="text-xs font-normal text-ink-muted">Minimálně 8 znaků, jedno písmeno a jedna číslice.</span>}
           </label>
-          {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button type="submit" disabled={submitting} className="button-primary">
+          {error && <p className="notice notice-error">{error}</p>}
+          <button type="submit" disabled={submitting} className="button-primary mt-1 w-full">
             {submitting ? "Zpracovávám…" : mode === "login" ? "Přihlásit se" : "Vytvořit účet"}
           </button>
         </form>
-
-        <div className="mt-6 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
-          Demo administrátor: <strong>admin@agents.local</strong> / <strong>Admin123!</strong>
-        </div>
       </section>
+
+      <p className="mt-4 rounded-xl border border-line bg-surface-2 px-4 py-3 text-xs text-ink-muted">
+        Demo administrátor: <span className="font-mono text-ink">admin@agents.local</span> / <span className="font-mono text-ink">Admin123!</span>
+      </p>
     </main>
   );
 }

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone react-slides deck with its own toolchain.
+    "presentation/**",
   ]),
 ]);
 
