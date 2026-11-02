@@ -84,7 +84,7 @@ const RISKS: {
     statement: 'BR-02 a BR-04 drží jen díky serializaci SQLite; změřeno pouze K = 2 → double booking při vyšším souběhu by zůstal neodhalen',
     initial: 'L2 × I3 = HIGH 6',
     priority: 'REJECTED',
-    response: 'MITIGATE · QC-01 (K = 10), QC-03, QC-04 do test:c02',
+    response: 'MITIGATE · QC-01 (K = 10), QC-03, QC-04 v test:c02 (7490c25)',
     expected: 'L1 × I3 = MEDIUM 3',
     actual: 'NOT VERIFIED',
     trigger: 'kterékoli QC = FAIL · více procesů / jiná DB',
@@ -114,10 +114,10 @@ const RISKS: {
 ]
 
 const ACTIONS: [string, string, string][] = [
-  ['Odkázat docs/c04 z README a architecture-and-decisions', 'oba soubory odkazují na C04', 'F1'],
-  ['Rozšířit test:c02 o QC-01 (K = 10, R = 5), QC-03, QC-04', 'PASS log v evidence, C04 §4 vyplněno', 'F1 · R-01'],
+  ['Spustit test:c02 s měřením QC-01 (K = 10, R = 5), QC-03, QC-04', 'PASS log v evidence, C04 §4 vyplněno', 'F1 · R-01'],
   ['Schválit baseline v0.1 – v0.2.1', 'jména + datum v team-approval.md', 'F3 · I-1'],
   ['Vytvořit reporting tag a spustit všechny checks na něm', 'tag + tabulka výsledků v evidence', 'F2 · R-02'],
+  ['Zapsat risk register (část B) do evidence', '≥ 4 rizika z ≥ 3 kategorií v evidence-and-evolution.md', 'B'],
 ]
 
 export default function TechnicalDesignReview() {
@@ -849,11 +849,11 @@ export default function TechnicalDesignReview() {
                   </td>
                 </tr>
                 <tr className="hl">
-                  <td>Měření QC-01 (K = 10), QC-03, QC-04 · kritické</td>
+                  <td>Běh měření QC-01 (K = 10), QC-03, QC-04 · kritické</td>
                   <td>
                     <Todo />
                   </td>
-                  <td>nezačato</td>
+                  <td>testy napsané (7490c25), čeká na běh</td>
                   <td>
                     <Todo />
                   </td>
@@ -887,7 +887,7 @@ export default function TechnicalDesignReview() {
             <div style={{ display: 'grid', gap: 24 }}>
               <div className="card">
                 <span className="tag">KRITICKÁ ZÁVISLOST</span>
-                <p>Měření QC je kritická cesta: reporting tag a nový běh checks mají smysl až po něm.</p>
+                <p>Běh měření QC je kritická cesta: reporting tag a nový běh checks mají smysl až po něm.</p>
               </div>
               <div className="card" style={{ borderColor: 'var(--rejected)', borderWidth: 3 }}>
                 <span className="tag" style={{ color: 'var(--rejected)' }}>
@@ -1005,7 +1005,7 @@ export default function TechnicalDesignReview() {
                 NENÍ HOTOVO
               </span>
               <ul className="clean small red">
-                <li>Měření QC-01 (K = 10), QC-03, QC-04</li>
+                <li>Běh měření QC-01 (K = 10), QC-03, QC-04 (testy napsané)</li>
                 <li>Schválení specifikace v0.1 – v0.2.1</li>
                 <li>Reporting tag a běh checks na něm</li>
               </ul>
