@@ -664,7 +664,7 @@ export default function TechnicalDesignReview() {
                     <Pill status="CONFIRMED">ACCEPT</Pill>
                   </td>
                   <td>
-                    team-approval.md podepsán (1e406c6) · <b>UZAVŘENO</b>
+                    team-approval.md podepsán (dd85ada) · <b>UZAVŘENO</b>
                   </td>
                 </tr>
               </tbody>
