@@ -65,8 +65,8 @@ the current slide.
 Executive Status, Scope & Delivery, Schedule & Resources, Top Risks & Issues,
 Next Action Plan, Decision & Outlook.
 
-`REPORTING_BASELINE` in `src/slides.tsx` must be set to the reporting tag once
-it exists (A and C share it).
+`STATUS_AS_OF` in `src/slides.tsx` is the date and commit both parts report
+against.
 
 ## Notes on react-slides 0.1.0
 

@@ -5,9 +5,9 @@ import { regionFadeIn } from '@react-slides/plugin-motion'
 import { BrandMark, Browser, Frame, Pill, asset, type Status } from './ui'
 import { ArchitectureDiagram, IntervalDiagram, OwnershipDiagram, SequenceDiagram, StateDiagram } from './diagrams'
 
-/* Both parts (A and C) must report against the same commit/tag. Update both lines when the tag exists. */
+/* C06 assessed this commit; both parts (A and C) report the state as of STATUS_AS_OF. */
 const ASSESSED_BASELINE = 'f200832'
-const REPORTING_BASELINE = 'měřeno na 046bc8c · tag po merge do main'
+const STATUS_AS_OF = '2026-11-02 · commit 046bc8c'
 const TEAM = 'swi-proj · IND0040, PRO0458, KOL0603, MER0126'
 
 /* Faithful excerpts of src/lib/reservation-policy.ts (messages shortened). */
@@ -86,14 +86,14 @@ const RISKS: {
   },
   {
     id: 'R-02',
-    category: 'Release / Baseline',
-    statement: 'Část A a C mohou ukázat jiný stav, protože reporting tag zatím neexistuje → nekonzistentní obhajoba (C06 F2)',
+    category: 'Scope / External',
+    statement: 'Agent selže těsně před rezervovaným oknem → systém neumí rezervaci zkrátit, posunout ani přeskládat → User přijde o čas',
     initial: 'L2 × I2 = MEDIUM 4',
     priority: 'PENDING_APPROVAL',
-    response: 'MITIGATE · tag na main po merge, všechny checks na tagu',
-    expected: 'L1 × I1 = LOW 1',
+    response: 'MITIGATE · návrh zkrátit / posunout / přeskládat (docs/future-pressure.md)',
+    expected: 'L2 × I1 = LOW 2',
     actual: 'NOT VERIFIED',
-    trigger: 'commit do main po vytvoření tagu',
+    trigger: 'první výpadek agenta s potvrzenou rezervací',
   },
   {
     id: 'R-03',
@@ -117,7 +117,6 @@ const SCHEDULE: [string, string, string, string, 'done' | 'late' | 'next'][] = [
   ['C05 detailní návrh + unit testy', 'C05', '9e2a25b, 1e24f55 · 10-12', 'IND0040, KOL0603', 'done'],
   ['Code review v0.2.1 (C06 baseline)', 'před C06', '6fd380f, f200832 · 10-19', 'KOL0603', 'done'],
   ['C04 + měření QC-01…04', 'C04', '5bc56b0, 7490c25 · 11-02, po C06', 'IND0040', 'late'],
-  ['Merge, reporting tag, všechny checks', 'C08', 'čeká na merge do main', 'IND0040', 'next'],
   ['Risk register + C06 disposition', 'C08', 'rizika R-01…R-03 v tomto reportu', 'KOL0603', 'next'],
 ]
 
@@ -131,8 +130,8 @@ const TEAM_MEMBERS: [string, string][] = [
 
 /* Slide C·05: action, owner, due, Definition of Done, related finding/risk. */
 const ACTIONS: [string, string, string, string, string][] = [
-  ['Merge c07-c08-presentation do main', 'IND0040', 'před C08', 'main obsahuje C04, QC testy a schválení', 'F1 · F3'],
-  ['Vytvořit reporting tag a spustit všechny checks na něm', 'IND0040', 'před C08', 'tag + tabulka výsledků v evidence', 'F2 · R-02'],
+  ['Přesunout kontrolu BR-05 při Create ze service do policy', 'IND0040', 'po CP1', 'assert v reservation-policy + unit test v test:c05', 'C05 §11'],
+  ['Navrhnout řešení výpadku agenta (zkrátit / posunout / přeskládat)', 'IND0040', 'po CP1', 'rozhodnutí ve specifikaci + dotčené Reservation', 'R-02'],
   ['Zapsat risk register (část B) do evidence', 'KOL0603', 'před C08', '≥ 4 rizika z ≥ 3 kategorií v evidence-and-evolution.md', 'B'],
   ['Zapsat disposition C06 F1–F3 do evidence', 'KOL0603', 'před C08', 'claim, verify, decision, closure pro F1–F3', 'F1–F3'],
 ]
@@ -146,7 +145,7 @@ export default function TechnicalDesignReview() {
       {/* A · Technical Design Review                                */}
       {/* ---------------------------------------------------------- */}
 
-      <Slide notes="Část A, 8–10 minut. Jedna technická linie od pravidla BR-02 až po nález z C06. C06 hodnotilo commit f200832; aktuální stav ukazuje reporting baseline v části C.">
+      <Slide notes="Část A, 8–10 minut. Jedna technická linie od pravidla BR-02 až po nález z C06. C06 hodnotilo commit f200832; aktuální stav je k 2026-11-02 (commit 046bc8c).">
         <Frame>
           <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 80, alignItems: 'center', flex: 1 }}>
             <div>
@@ -508,7 +507,7 @@ export default function TechnicalDesignReview() {
 
       {/* ---------- 4 · Verification & Evidence ---------- */}
 
-      <Slide notes="Tři případy ze skutečného běhu test:c02 dne 2026-11-02 na commitu 046bc8c, čistá SQLite, next build + next start. Oracle je přesný HTTP status a stav. Ostatní kontroly jsou z běhu 2026-10-19; doménový kód (src/lib) se od té doby nezměnil, všechny checks zopakujeme na reporting tagu.">
+      <Slide notes="Tři případy ze skutečného běhu test:c02 dne 2026-11-02 na commitu 046bc8c, čistá SQLite, next build + next start. Oracle je přesný HTTP status a stav. Ostatní kontroly jsou z běhu 2026-10-19; doménový kód (src/lib) se od té doby nezměnil.">
         <Frame title="Expected vs. observed." section="A4 · Evidence">
           <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 32 }}>
             <table className="t compact">
@@ -676,7 +675,7 @@ export default function TechnicalDesignReview() {
                   <td>
                     <Pill status="REJECTED">REJECT</Pill>
                   </td>
-                  <td>no-change · assessed = f200832, nový reporting tag</td>
+                  <td>no-change · assessed = f200832</td>
                 </tr>
                 <tr>
                   <td className="mono">F3</td>
@@ -746,7 +745,7 @@ export default function TechnicalDesignReview() {
       {/* C · Project Status Report                                  */}
       {/* ---------------------------------------------------------- */}
 
-      <Slide notes="Část C, 5–7 minut. Stejný projekt, stejná reporting baseline jako část A, ale pohled řízení: stav, termíny, rizika, rozhodnutí.">
+      <Slide notes="Část C, 5–7 minut. Stejný projekt a stejný stav jako část A, ale pohled řízení: stav, termíny, rizika, rozhodnutí.">
         <Frame dark section="Project Status">
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <span className="tag" style={{ color: '#34d399' }}>
@@ -754,13 +753,13 @@ export default function TechnicalDesignReview() {
             </span>
             <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Skutečný stav, ne seznam aktivit.</h1>
             <p className="lede mono" style={{ fontSize: 26 }}>
-              reporting baseline · {REPORTING_BASELINE}
+              stav k {STATUS_AS_OF}
             </p>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="01 Executive Status. GREEN: všech pět operací je implementováno a ověřeno, C04 měření souběhu prošlo pro K = 10 a specifikace v0.1–v0.2.1 je schválená. Zbývá merge, reporting tag a zápis části B — žádná z těchto akcí neblokuje rozsah ani termín.">
+      <Slide notes="01 Executive Status. GREEN: všech pět operací je implementováno a ověřeno, C04 měření souběhu prošlo pro K = 10 a specifikace v0.1–v0.2.1 je schválená. Zbývají známé limity (BR-05 v service, výpadek agenta) a zápis části B — nic z toho neblokuje rozsah ani termín CP1.">
         <Frame title="01 · Executive Status" section="Project Status">
           <div className="body" style={{ display: 'grid', gridTemplateColumns: '0.75fr 1.25fr', gap: 56, alignItems: 'center' }}>
             <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 4, textAlign: 'center', padding: '56px 36px' }}>
@@ -783,7 +782,7 @@ export default function TechnicalDesignReview() {
                 <span className="tag" style={{ color: 'var(--confirmed)' }}>
                   POTŘEBNÉ ROZHODNUTÍ
                 </span>
-                <p style={{ color: 'var(--ink-2)' }}>Potvrdit merge do main a reporting tag jako baseline pro obhajobu CP1. Podklad: C04 §4, team-approval.md, C06 F1–F3.</p>
+                <p style={{ color: 'var(--ink-2)' }}>Přijmout známé limity pro CP1 (jeden proces, SQLite dle ADR-001) a naplánovat řešení výpadku agenta. Podklad: C04 §4, ADR-001.</p>
               </div>
             </div>
           </div>
@@ -870,15 +869,15 @@ export default function TechnicalDesignReview() {
                 </ul>
               </div>
               <div className="card">
-                <span className="tag">KRITICKÁ ZÁVISLOST</span>
-                <p>Reporting tag vzniká až po merge do main; obě části obhajoby se na něj odkazují.</p>
+                <span className="tag">NEJBLIŽŠÍ TERMÍN</span>
+                <p>C08: risk register (část B) a disposition C06 v evidence-and-evolution.md.</p>
               </div>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="04 Top Risks & Issues. Tři rizika z části B se skóre L × I před ošetřením. R-01 má ověřený actual residual díky měření 2026-11-02. R-02 je NOT VERIFIED, dokud tag nevznikne. Obě issues jsou uzavřené.">
+      <Slide notes="04 Top Risks & Issues. Tři rizika z části B se skóre L × I před ošetřením. R-01 má ověřený actual residual díky měření 2026-11-02. R-02 (výpadek agenta) je NOT VERIFIED, řešení teprve navrhneme. Obě issues jsou uzavřené.">
         <Frame title="04 · Top Risks & Issues" section="Project Status">
           <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 26 }}>
             <table className="t compact risk">
@@ -961,7 +960,7 @@ export default function TechnicalDesignReview() {
         </Frame>
       </Slide>
 
-      <Slide notes="06 Decision & Outlook. Funkční rozsah, kvalitativní kritérium i schválení specifikace jsou doložené. Zbývající akce jsou administrativní a mají ownery. Forecast: GREEN do C08.">
+      <Slide notes="06 Decision & Outlook. Funkční rozsah, C04 kritérium i schválení specifikace jsou doložené. Nehotové jsou známé limity, které jsme pojmenovali už dřív: BR-05 při Create rozhoduje service, kontrola architektury je textová a výpadek agenta zatím neumíme řešit. Záruky souběhu platí jen pro jeden proces se SQLite.">
         <Frame title="06 · Decision & Outlook" section="Project Status">
           <div className="body grid cols-2" style={{ gap: 40, alignContent: 'center' }}>
             <div className="card">
@@ -979,19 +978,24 @@ export default function TechnicalDesignReview() {
                 NENÍ HOTOVO
               </span>
               <ul className="clean small red">
-                <li>Merge do main a reporting tag</li>
-                <li>Risk register (část B) a C06 disposition v evidence</li>
+                <li>BR-05 při Create rozhoduje service, ne policy</li>
+                <li>Výpadek agenta: zkrátit, posunout nebo přeskládat dotčené rezervace</li>
+                <li>Kontrola architektury stojí na regulárních výrazech, ne na AST</li>
               </ul>
             </div>
             <div className="card">
-              <span className="tag">NEJVĚTŠÍ OMEZENÍ</span>
-              <p>Záruky souběhu platí pro jeden proces se SQLite (ADR-001); jiné nasazení vyžaduje nové rozhodnutí.</p>
+              <span className="tag">ZNÁMÉ LIMITY</span>
+              <ul className="clean small red">
+                <li>Souběh je bezpečný, protože SQLite v jednom procesu řadí zápisy za sebe</li>
+                <li>Omezení pokusů o přihlášení drží stav v paměti, platí jen pro jeden proces</li>
+                <li>Před změnou databáze rozhodnout o izolaci / zamykání</li>
+              </ul>
             </div>
             <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
               <span className="tag" style={{ color: 'var(--confirmed)' }}>
                 FORECAST · ROZHODNUTÍ
               </span>
-              <p style={{ color: 'var(--ink-2)' }}>GREEN do C08. Rozhodnutí: potvrdit merge a reporting tag jako baseline CP1.</p>
+              <p style={{ color: 'var(--ink-2)' }}>GREEN do C08. Rozhodnutí: přijmout známé limity pro CP1 (ADR-001) a řešení výpadku agenta naplánovat po CP1.</p>
             </div>
           </div>
         </Frame>
