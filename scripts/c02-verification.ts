@@ -105,6 +105,33 @@ async function runCase(name: string, work: () => Promise<void>) {
   console.log(`PASS  ${name}`);
 }
 
+/** C04 QC-04: no two CONFIRMED Reservations of one Agent overlap anywhere in the database. */
+async function assertNoConfirmedOverlapInDb() {
+  const confirmed = await prisma.reservation.findMany({
+    where: { status: "CONFIRMED" },
+    select: { id: true, agentId: true, startTime: true, endTime: true },
+    orderBy: [{ agentId: "asc" }, { startTime: "asc" }],
+  });
+  for (let i = 1; i < confirmed.length; i++) {
+    const previous = confirmed[i - 1];
+    const current = confirmed[i];
+    if (previous.agentId !== current.agentId) continue;
+    assert.ok(
+      current.startTime >= previous.endTime,
+      `CONFIRMED ${previous.id} and ${current.id} overlap for Agent ${current.agentId}`,
+    );
+  }
+  return confirmed.length;
+}
+
+function statusCounts(results: ApiResult[]) {
+  const counts = new Map<number, number>();
+  for (const { response } of results) {
+    counts.set(response.status, (counts.get(response.status) ?? 0) + 1);
+  }
+  return counts;
+}
+
 async function main() {
   const adminLogin = await api(
     "/api/auth/login",
@@ -653,6 +680,69 @@ async function main() {
     ]);
     const statuses = [leftDecision.response.status, rightDecision.response.status].sort();
     assert.deepEqual(statuses, [200, 409]);
+  });
+
+  // C04 Quality & Measurement (docs/c04/quality-and-measurement.md): K concurrent requests, R repetitions.
+  const QC_K = 10;
+  const QC_R = 5;
+
+  await runCase(`C04 QC-01 ${QC_K} concurrent conflicting Creates confirm exactly one (x${QC_R})`, async () => {
+    for (let r = 0; r < QC_R; r++) {
+      const agent = await createAgent(`QC-01 run ${r}`, false);
+      const emails = Array.from({ length: QC_K }, (_, k) => testEmail(`qc01-${r}-${k}`));
+      for (const email of emails) await authenticate(email);
+
+      const results = await Promise.all(
+        emails.map((email) =>
+          createViaApi({ email, agentId: agent.id, startTime: iso(6), endTime: iso(7) }),
+        ),
+      );
+      const counts = statusCounts(results);
+      assert.equal(counts.get(201), 1, `run ${r}: expected exactly one 201`);
+      assert.equal(counts.get(409), QC_K - 1, `run ${r}: expected ${QC_K - 1}x 409`);
+      for (const result of results.filter((x) => x.response.status === 409)) {
+        assert.equal(result.body.code, "AGENT_UNAVAILABLE");
+      }
+      const confirmed = await prisma.reservation.count({
+        where: { agentId: agent.id, status: "CONFIRMED" },
+      });
+      assert.equal(confirmed, 1, `run ${r}: expected one CONFIRMED in DB`);
+    }
+  });
+
+  await runCase(`C04 QC-03 ${QC_K} concurrent Creates cannot exceed the BR-04 limit (x${QC_R})`, async () => {
+    for (let r = 0; r < QC_R; r++) {
+      const agent = await createAgent(`QC-03 run ${r}`, false);
+      const email = testEmail(`qc03-${r}`);
+      const user = await registeredUser(email, "QC-03 User");
+      const limit = user.maxReservations;
+
+      for (let i = 0; i < limit - 1; i++) {
+        const seeded = await createViaApi({ email, agentId: agent.id, startTime: iso(i), endTime: iso(i, 30) });
+        assert.equal(seeded.response.status, 201);
+      }
+
+      const results = await Promise.all(
+        Array.from({ length: QC_K }, (_, k) =>
+          createViaApi({ email, agentId: agent.id, startTime: iso(limit + k), endTime: iso(limit + k, 30) }),
+        ),
+      );
+      const counts = statusCounts(results);
+      assert.equal(counts.get(201), 1, `run ${r}: expected exactly one 201`);
+      assert.equal(counts.get(403), QC_K - 1, `run ${r}: expected ${QC_K - 1}x 403`);
+      for (const result of results.filter((x) => x.response.status === 403)) {
+        assert.equal(result.body.code, "QUOTA_EXCEEDED");
+      }
+      const active = await prisma.reservation.count({
+        where: { userId: user.id, status: { in: ["CONFIRMED", "PENDING_APPROVAL"] } },
+      });
+      assert.equal(active, limit, `run ${r}: expected exactly ${limit} active Reservations`);
+    }
+  });
+
+  await runCase("C04 QC-04 database holds no overlapping CONFIRMED Reservations", async () => {
+    const checked = await assertNoConfirmedOverlapInDb();
+    assert.ok(checked > 0);
   });
 
   await runCase("Global overview omits Reservation owner identity", async () => {
