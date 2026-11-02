@@ -1,17 +1,14 @@
 import { Slide, Fragment, CodeStepper, DiagramStepper } from '@react-slides/core'
-import { TwoColumnLayout } from '@react-slides/components'
 import { useShikiHighlighter } from '@react-slides/plugin-shiki'
 import { regionFadeIn } from '@react-slides/plugin-motion'
 
-import { Browser, BrandMark, Frame, Marker, Pill, asset, type Status } from './ui'
-import {
-  AllocateByTimeDiagram,
-  ArchitectureDiagram,
-  IntervalDiagram,
-  OwnershipDiagram,
-  ShareByQuantityDiagram,
-  StateDiagram,
-} from './diagrams'
+import { Browser, Frame, Pill, asset, type Status } from './ui'
+import { ArchitectureDiagram, IntervalDiagram, OwnershipDiagram, SequenceDiagram, StateDiagram } from './diagrams'
+
+/* Both parts (A and C) must report against the same commit/tag. Update both lines when the tag exists. */
+const ASSESSED_BASELINE = 'f200832'
+const REPORTING_BASELINE = 'd2b1784 + PR #15 · tag doplnit'
+const TEAM = 'swi-proj · IND0040, PRO0458, KOL0603, MER0126'
 
 /* Faithful excerpts of src/lib/reservation-policy.ts (messages shortened). */
 const PLAN_DECISION_CODE = `export function planDecision(
@@ -42,242 +39,234 @@ type Verdict = 'YES' | 'PARTLY' | 'NO'
 
 const VERDICT_PILL: Record<Verdict, Status> = { YES: 'CONFIRMED', PARTLY: 'PENDING_APPROVAL', NO: 'REJECTED' }
 
+function V({ v }: { v: Verdict }) {
+  return <Pill status={VERDICT_PILL[v]}>{v}</Pill>
+}
+
+/** Placeholder for data the team has to supply; never invent owners or dates. */
+function Todo({ children = 'doplnit' }: { children?: string }) {
+  return <span className="todo">{children}</span>
+}
+
 /* docs/review.md: C06 assessment by team Parking reservation system, 2026-10-24. */
 const REVIEW_SCORECARD: [string, [string, Verdict][]][] = [
   ['Baseline', [['B1', 'PARTLY'], ['B2', 'YES']]],
   ['C02 Specifikace', [['R1', 'YES'], ['R2', 'YES'], ['R3', 'YES'], ['R4', 'PARTLY'], ['R5', 'YES']]],
   ['C03 Architektura', [['A1', 'YES'], ['A2', 'YES'], ['A3', 'YES'], ['A4', 'YES']]],
-  ['C04 Kvalita a měření', [['Q1', 'NO'], ['Q2', 'NO'], ['Q3', 'NO']]],
+  ['C04 Kvalita', [['Q1', 'NO'], ['Q2', 'NO'], ['Q3', 'NO']]],
   ['C05 Detailní návrh', [['D1', 'YES'], ['D2', 'YES'], ['D3', 'YES'], ['D4', 'YES'], ['D5', 'YES']]],
 ]
 
-const REVIEW_FINDINGS: {
+/* Slide C·02: Specified / Designed / Implemented / Verified with the evidence or the gap. */
+const DELIVERY: [string, Verdict, Verdict, Verdict, Verdict, string][] = [
+  ['OP-01 Create', 'PARTLY', 'YES', 'YES', 'YES', 'C05 DD · test:c02 OP-01'],
+  ['OP-02 Availability', 'PARTLY', 'YES', 'YES', 'YES', 'test:c02 half-open hranice'],
+  ['OP-03/05 Confirm · Approval', 'PARTLY', 'YES', 'YES', 'YES', 'C05 §6 · test:c02 OP-05, REQ-10'],
+  ['OP-04 Cancel', 'PARTLY', 'YES', 'YES', 'YES', 'planCancel · test:c05 + test:c02'],
+  ['Business rules BR-01…06', 'PARTLY', 'YES', 'YES', 'PARTLY', 'BR-04 pod souběhem neověřeno'],
+  ['C04 · integrita pod souběhem', 'YES', 'YES', 'YES', 'PARTLY', 'měřeno jen K = 2 (QC-01/02)'],
+]
+
+const RISKS: {
   id: string
-  title: string
-  found: string
-  recommended: string
-  decision: 'ACCEPTED' | 'REJECTED'
-  reason: string
-  action: string
-  notes: string
+  category: string
+  statement: string
+  initial: string
+  priority: Status
+  response: string
+  expected: string
+  actual: string
+  trigger: string
 }[] = [
   {
-    id: 'F1',
-    title: 'Chybí artefakt C04 Kvalita a měření',
-    found:
-      'V docs/ není žádný dokument C04: chybí quality concern, hodnotitelné kritérium, měření i navazující rozhodnutí a README na C04 neodkazuje. Q1 až Q3 proto dostaly NO.',
-    recommended: 'Doplnit nebo odkázat celý řetězec quality concern, kritérium, měření za daných podmínek a rozhodnutí.',
-    decision: 'ACCEPTED',
-    reason: 'Oprávněné. Jde o jedinou oblast hodnocenou NO a chybí celý povinný artefakt, ne jen detail.',
-    action:
-      'Doplníme docs/c04/. Návrh: concern je konzistence BR-02 pod souběhem, kritérium „z N souběžných konfliktních požadavků skončí právě jeden jako CONFIRMED“, měření nad souběžným scénářem C02 se zapsanými podmínkami a rozhodnutí navázané na ADR-001.',
-    notes:
-      'F1 přijímáme. Je to největší díra v hodnocení: tři NO z jediné příčiny. Konkrétní concern je zatím návrh, měření teprve provedeme.',
+    id: 'R-01',
+    category: 'Technical / Quality',
+    statement: 'BR-02 a BR-04 drží jen díky serializaci SQLite; změřeno pouze K = 2 → double booking při vyšším souběhu by zůstal neodhalen',
+    initial: 'L2 × I3 = HIGH 6',
+    priority: 'REJECTED',
+    response: 'MITIGATE · QC-01 (K = 10), QC-03, QC-04 do test:c02',
+    expected: 'L1 × I3 = MEDIUM 3',
+    actual: 'NOT VERIFIED',
+    trigger: 'kterékoli QC = FAIL · více procesů / jiná DB',
   },
   {
-    id: 'F2',
-    title: 'Není určena jedna hodnocená baseline',
-    found:
-      'HEAD f200832 nemá tag, zatímco dokumentace uvádí b107a9d / c02-baseline-v0.2, 4669362 / c03-architecture a tag c05-detailed-design.',
-    recommended: 'Potvrdit, která baseline je hodnocená, a doložit shodu dokumentace, kódu a testů.',
-    decision: 'REJECTED',
-    reason:
-      'Více commitů není rozpor. Každý checkpoint záměrně zapisuje commit, na kterém byl ověřen. Dokumentace, kód a testy na f200832 tvoří jeden konzistentní celek, což recenzenti sami ověřili (B2: testy prošly).',
-    action: 'Historické záznamy necháme beze změny. V odpovědi na review uvedeme f200832 jako hodnocenou baseline.',
-    notes:
-      'F2 odmítáme. Záznamy commitů u C02, C03 a C05 jsou historie jednotlivých checkpointů, ne konkurenční baseline. Stačí v odpovědi pojmenovat hodnocený commit.',
+    id: 'R-02',
+    category: 'Release / Baseline',
+    statement: 'Část A a C mohou ukázat jiný stav, protože reporting tag zatím neexistuje → nekonzistentní obhajoba (C06 F2)',
+    initial: 'L2 × I2 = MEDIUM 4',
+    priority: 'PENDING_APPROVAL',
+    response: 'MITIGATE · tag po merge PR #15, všechny checks na tagu',
+    expected: 'L1 × I1 = LOW 1',
+    actual: 'NOT VERIFIED',
+    trigger: 'commit do main po vytvoření tagu',
   },
   {
-    id: 'F3',
-    title: 'Baseline specifikace nejsou schválené',
-    found:
-      'docs/team-approval.md má u v0.1, v0.2 i v0.2.1 nezaškrtnutý stav, přitom kód implementuje v0.2.1: BR-06, explicitní časový offset a limit poznámky.',
-    recommended: 'Potvrdit, která baseline je schválená, nebo oddělit schválenou specifikaci od novějšího kódu.',
-    decision: 'ACCEPTED',
-    reason:
-      'Oprávněné. Schválení je brána každé baseline. Bez podpisů nelze doložit, že kód odpovídá přijaté specifikaci, odtud R4: PARTLY.',
-    action:
-      'Tým projde v0.1 až v0.2.1 a do team-approval.md zapíše jména, datum a stav. Navrhujeme schválit i v0.2.1, protože jde o opravy z code review.',
-    notes:
-      'F3 přijímáme. Oprava je levná a zároveň srovná R4 z PARTLY na YES: stačí, aby tým formálně potvrdil baseline, podle které kód vznikl.',
+    id: 'R-03',
+    category: 'Security',
+    statement: 'Login throttle žije v paměti procesu → restart jej vynuluje a cizí e-mail lze dočasně zablokovat',
+    initial: 'L2 × I1 = LOW 2',
+    priority: 'CONFIRMED',
+    response: 'ACCEPT · v souladu s ADR-001 (jeden proces)',
+    expected: 'L2 × I1 = LOW 2',
+    actual: 'LOW 2 · přijato',
+    trigger: 'nasazení s více procesy',
   },
 ]
 
-export default function AgentReservationsPitch() {
+const ACTIONS: [string, string, string][] = [
+  ['Merge PR #15 (C04) + odkaz z README', 'docs/c04 v main, README odkazuje', 'F1'],
+  ['Rozšířit test:c02 o QC-01 (K = 10, R = 5), QC-03, QC-04', 'PASS log v evidence, C04 §4 vyplněno', 'F1 · R-01'],
+  ['Schválit baseline v0.1 – v0.2.1', 'jména + datum v team-approval.md', 'F3 · I-1'],
+  ['Vytvořit reporting tag a spustit všechny checks na něm', 'tag + tabulka výsledků v evidence', 'F2 · R-02'],
+]
+
+export default function TechnicalDesignReview() {
   const Highlighter = useShikiHighlighter({ theme: 'github-dark-default', langs: ['typescript'] })
 
   return (
     <>
       {/* ---------------------------------------------------------- */}
-      {/* 01 · Produkt                                               */}
+      {/* A · Technical Design Review                                */}
       {/* ---------------------------------------------------------- */}
 
-      <Slide notes="Začněte slibem, ne technologií. Jedna věta: každý dostane předvídatelný čas na sdílených AI agentech, bez kolizí.">
-        <Frame>
-          <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 80, alignItems: 'center', flex: 1 }}>
-            <div>
-              <h1>
-                Agent
-                <br />
-                Reservations
-              </h1>
-              <p className="lede" style={{ fontSize: 38, color: 'var(--ink-2)', marginTop: 36 }}>
-                Spravedlivě sdílený výpočetní čas AI agentů, bez kolizí.
-              </p>
-              <div className="row" style={{ marginTop: 48, gap: 12, flexWrap: 'wrap' }}>
-                <Pill status="CONFIRMED" />
-                <Pill status="PENDING_APPROVAL" />
-                <Pill status="REJECTED" />
-                <Pill status="CANCELLED" />
-                <Pill status="EXPIRED" />
-              </div>
-            </div>
-            <Browser src={asset('screenshots/home-public.png')} alt="Veřejný přehled rezervací" scrollTo={0.44} crop={{ x: 0.1, w: 0.8 }} style={{ height: 580 }} />
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="Hlavní premisa projektu. Agenty nepřidělujeme podle množství — kdy se všichni dělí o výkon a nikdo neví, kolik ho zrovna dostane. Přidělujeme je podle času: uživatel si zarezervuje okno, kdy agenta potřebuje, a v tu chvíli má celého agenta připraveného jen pro sebe. Všechno ostatní v projektu — pravidlo překryvu, limit rezervací, schvalování — z této myšlenky vychází.">
-        <Frame title="Agenty přidělujeme podle času, ne podle množství.">
-          <div className="body grid cols-2" style={{ gap: 40, alignContent: 'center' }}>
-            <div className="card">
-              <span className="tag" style={{ color: 'var(--rejected)' }}>
-                PODLE MNOŽSTVÍ
-              </span>
-              <div style={{ height: 300 }}>
-                <ShareByQuantityDiagram />
-              </div>
-              <h3 style={{ marginTop: 24 }}>Všichni najednou, každý jen kousek</h3>
-              <p>Výkon agenta se dělí mezi všechny, kdo ho právě používají. Nikdo neví, kolik ho v danou chvíli dostane.</p>
-            </div>
-            <Fragment className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
-              <span className="tag" style={{ color: 'var(--confirmed)' }}>
-                PODLE ČASU · NÁŠ PŘÍSTUP
-              </span>
-              <div style={{ height: 300 }}>
-                <AllocateByTimeDiagram />
-              </div>
-              <h3 style={{ marginTop: 24 }}>Každý celého agenta, ve svém čase</h3>
-              <p>Uživatel si zarezervuje čas, kdy agenta potřebuje. V tu chvíli je agent připravený jen pro něj — nemusí se s nikým dělit.</p>
-            </Fragment>
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="Skutečný snímek běžící aplikace (pohled Jany). Projděte čtyři očíslované oblasti po pořadě.">
-        <Frame title="Vidět, rezervovat, schválit — na jednom místě.">
-          <div className="body">
-            <TwoColumnLayout
-              ratio="1.25fr 0.75fr"
-              gap="64px"
-              align="center"
-              left={
-                <Browser src={asset('screenshots/home-user.png')} alt="Pohled přihlášeného uživatele" scrollTo={0.185} style={{ height: 690 }}>
-                  <Fragment step={1}>
-                    <Marker n={1} x="8.6%" y="22.5%" />
-                  </Fragment>
-                  <Fragment step={2}>
-                    <Marker n={2} x="8.6%" y="44%" />
-                  </Fragment>
-                  <Fragment step={3}>
-                    <Marker n={3} x="8.6%" y="69.5%" />
-                  </Fragment>
-                  <Fragment step={4}>
-                    <Marker n={4} x="52.5%" y="69.3%" />
-                  </Fragment>
-                </Browser>
-              }
-              right={
-                <div className="callouts">
-                  <Fragment step={1} className="callout">
-                    <span className="marker">1</span>
-                    <div>
-                      <h3>Katalog agentů</h3>
-                      <p>Každý agent předem říká: okamžité potvrzení, nebo nutné schválení.</p>
-                    </div>
-                  </Fragment>
-                  <Fragment step={2} className="callout">
-                    <span className="marker">2</span>
-                    <div>
-                      <h3>Veřejný Ganttův diagram</h3>
-                      <p>Každý vidí, co je obsazené — nikdy ale kdo a proč.</p>
-                    </div>
-                  </Fragment>
-                  <Fragment step={3} className="callout">
-                    <span className="marker">3</span>
-                    <div>
-                      <h3>Nejdřív ověřit, pak rezervovat</h3>
-                      <p>Dostupnost lze ověřit předem; při uložení se stejně kontroluje znovu.</p>
-                    </div>
-                  </Fragment>
-                  <Fragment step={4} className="callout">
-                    <span className="marker">4</span>
-                    <div>
-                      <h3>Moje rezervace</h3>
-                      <p>Aktuální stav každé žádosti, zrušení až do začátku rezervace.</p>
-                    </div>
-                  </Fragment>
-                </div>
-              }
-            />
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="Jde o pravidla specifikace BR-01 až BR-05 a AR-01, formulovaná jako sliby zákazníkovi. Každé se vynucuje na právě jednom místě — o tom je následující část o architektuře.">
-        <Frame title="Šest slibů — každý je pravidlem ze specifikace.">
-          <div className="body grid cols-3" style={{ alignContent: 'center' }}>
-            <div className="card">
-              <span className="tag">BR-02</span>
-              <h3>Nikdy dvakrát obsazeno</h3>
-              <p>Dvě rezervace CONFIRMED téhož agenta se nikdy nepřekrývají — ani při souběžných požadavcích.</p>
-            </div>
-            <div className="card">
-              <span className="tag">BR-01</span>
-              <h3>Navazující rezervace projdou</h3>
-              <p>Polootevřené intervaly <code>[start, end)</code>: 10–11 i 11–12 se vejdou.</p>
-            </div>
-            <div className="card">
-              <span className="tag">BR-04</span>
-              <h3>Spravedlivý podíl</h3>
-              <p>Nejvýše N aktivních rezervací na uživatele, včetně čekajících. Souběžné požadavky limit neobejdou.</p>
-            </div>
-            <div className="card">
-              <span className="tag">BR-03</span>
-              <h3>Zrušit lze do začátku</h3>
-              <p>Před <code>startTime</code> lze rezervaci zrušit. Opakované zrušení nic nezmění.</p>
-            </div>
-            <div className="card">
-              <span className="tag">BR-05</span>
-              <h3>Jen aktivní agenti</h3>
-              <p>Deaktivovaný agent nepřijme žádné nové potvrzení — ani opožděné schválení.</p>
-            </div>
-            <div className="card">
-              <span className="tag">AR-01</span>
-              <h3>Identita ze serveru</h3>
-              <p>HttpOnly session cookie, hesla uložená jako salted hash. Aktér se nikdy nebere z těla požadavku.</p>
-            </div>
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide steps={2} notes="Krok 1: požadavek, který se jen dotýká hranice, projde. Krok 2: skutečný překryv je odmítnut a nic se neuloží. Kontrolu v paměti i databázový dotaz řídí stejná funkce overlapBounds().">
-        <Frame title="Navazující rezervace projdou. Překryv nikdy.">
-          <div className="body" style={{ display: 'grid', gridTemplateRows: '1fr auto', gap: 36 }}>
-            <DiagramStepper animation={regionFadeIn} steps={[{ show: ['touch'] }, { show: ['overlap'] }]}>
-              <IntervalDiagram />
-            </DiagramStepper>
-            <p className="mono" style={{ fontSize: 26, color: 'var(--ink-2)' }}>
-              překryv ⇔ existing.start &lt; requested.end ∧ existing.end &gt; requested.start
+      <Slide notes="Část A, 8–10 minut. Jedna technická linie od pravidla BR-02 až po nález z C06. Dvě baseline: C06 hodnotilo f200832, aktuální stav ukazujeme na reporting baseline.">
+        <Frame dark>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span className="tag" style={{ color: '#34d399' }}>
+              CP1 · ČÁST A · TECHNICAL DESIGN REVIEW
+            </span>
+            <h1 style={{ fontSize: 120 }}>Agent Reservations</h1>
+            <p className="lede" style={{ fontSize: 36 }}>
+              Rezervace výpočetního času AI agentů. Jedno pravidlo, sledované od specifikace až po review.
             </p>
+            <div className="grid cols-3" style={{ marginTop: 64, maxWidth: 1500 }}>
+              <div>
+                <span className="tag">TÝM</span>
+                <p className="mono" style={{ fontSize: 24 }}>{TEAM}</p>
+              </div>
+              <div>
+                <span className="tag">C06 ASSESSED BASELINE</span>
+                <p className="mono" style={{ fontSize: 24 }}>{ASSESSED_BASELINE}</p>
+              </div>
+              <div>
+                <span className="tag">REPORTING BASELINE</span>
+                <p className="mono" style={{ fontSize: 24 }}>{REPORTING_BASELINE}</p>
+              </div>
+            </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide steps={4} notes="Životní cyklus v0.2 ve čtyřech krocích. Agenti bez schválení jdou rovnou do CONFIRMED a lze je zrušit před začátkem. Agenti se schválením čekají v PENDING_APPROVAL; schválení znovu ověří BR-02 a BR-05. Čekající žádost lze zamítnout, vyprší v startTime, nebo ji lze zrušit. O každé šipce rozhoduje Reservation Service — UI a Admin o ni jen žádají.">
-        <Frame
-          title="Dvě rychlosti: okamžitě pro běžné agenty, se schválením pro drahé."
-        >
+      <Slide steps={5} notes="Mapa celé obhajoby. Každý krok odpovídá jednomu kroku zadání a pracuje se stejným pravidlem BR-02: dva CONFIRMED intervaly stejného agenta se nesmí překrývat.">
+        <Frame title="Jedna argumentační linie: BR-02." lede="Dvě CONFIRMED rezervace stejného Agenta se nikdy nepřekrývají — ani pod souběhem.">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 24, alignContent: 'center' }}>
+            {[
+              ['1 · SCOPE', 'OP-01 Create', 'Pre/postconditions, BR-02, změna v0.2 se schvalováním.'],
+              ['2 · ARCHITECTURE', 'Jeden vlastník', 'Reservation Service drží rozhodnutí i transakci. ADR-001.'],
+              ['3 · DETAILED DESIGN', 'Čistá policy', 'planDecision + assertCanConfirm, větve a failure kódy.'],
+              ['4 · EVIDENCE', 'Test + C04', 'Pozitivní, hraniční a souběžný případ. Kritérium QC-01.'],
+              ['5 · C06', 'Nález F1', 'Chybělo C04. Ověřeno, přijato, uzavřeno jen částečně.'],
+            ].map(([tag, h, p], i) => (
+              <Fragment key={tag} step={i + 1} className="card">
+                <span className="tag" style={{ color: 'var(--confirmed)' }}>
+                  {tag}
+                </span>
+                <h3>{h}</h3>
+                <p>{p}</p>
+              </Fragment>
+            ))}
+          </div>
+        </Frame>
+      </Slide>
+
+      {/* ---------- 1 · Scope & accepted behavior ---------- */}
+
+      <Slide notes="Doména: exkluzivní Resource je AI Agent, přiděluje se podle času. Dvě role. Hranice systému: jedna Next.js aplikace a SQLite; žádná notifikační služba ani externí identita. Vybraná operace je OP-01 Create.">
+        <Frame title="Scope: kdo, co a kde končí systém." section="A1 · Scope">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '0.95fr 1.05fr', gap: 56, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gap: 26 }}>
+              <div className="card">
+                <span className="tag">DOMÉNA</span>
+                <p>Exkluzivní Resource = AI Agent. Přiděluje se podle času: interval <code>[start, end)</code> patří celý jednomu Userovi.</p>
+              </div>
+              <div className="card">
+                <span className="tag">ROLE · AR-01</span>
+                <p>
+                  <b style={{ color: 'var(--ink)' }}>User</b> vytváří a ruší vlastní Reservation. <b style={{ color: 'var(--ink)' }}>Admin</b> schvaluje / zamítá (OP-05).
+                  Identita z HttpOnly Session, nikdy z těla požadavku.
+                </p>
+              </div>
+              <div className="card">
+                <span className="tag">HRANICE SYSTÉMU</span>
+                <p>Jeden proces Next.js + SQLite. Mimo: prohlížeč. Notifikace ani externí identita nejsou součástí přijaté specifikace.</p>
+              </div>
+            </div>
+            <div>
+              <Browser src={asset('screenshots/home-user.png')} alt="Pohled přihlášeného uživatele" scrollTo={0.185} style={{ height: 520 }} />
+              <div className="row" style={{ marginTop: 28, gap: 12, flexWrap: 'wrap' }}>
+                <Pill status="CONFIRMED">OP-01 Create · vybráno</Pill>
+                <Pill status="ghost">OP-02 Availability</Pill>
+                <Pill status="ghost">OP-03 Confirm</Pill>
+                <Pill status="ghost">OP-04 Cancel</Pill>
+                <Pill status="ghost">OP-05 Approve (v0.2)</Pill>
+              </div>
+            </div>
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide steps={2} notes="Karta OP-01 ze specifikace v0.2.1. Confirm není samostatný krok: je to atomický commit uvnitř Create. Verification example: navazující interval projde, překryv je odmítnut 409 a nic se neuloží.">
+        <Frame title="OP-01 Create a invariant BR-02." section="A1 · Scope">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 48 }}>
+            <div className="card" style={{ display: 'grid', gap: 20, alignContent: 'start' }}>
+              <div>
+                <span className="tag">PRECONDITIONS</span>
+                <ul className="clean small">
+                  <li>přihlášený User · aktivní Agent (BR-05)</li>
+                  <li>
+                    <code>start &lt; end</code>, offset / <code>Z</code> (BR-01), <code>start &gt; now</code> (BR-06)
+                  </li>
+                  <li>žádný překrývající se CONFIRMED (BR-02) · limit N (BR-04)</li>
+                </ul>
+              </div>
+              <div>
+                <span className="tag">POSTCONDITIONS</span>
+                <ul className="clean small">
+                  <li>
+                    právě jedna Reservation: <Pill status="CONFIRMED" />, u Agenta se schválením <Pill status="PENDING_APPROVAL" />
+                  </li>
+                  <li>odpověď vrací id a stav · BR-02 platí dál</li>
+                </ul>
+              </div>
+              <div>
+                <span className="tag">FAILURE</span>
+                <ul className="clean small red">
+                  <li>400 interval / START_IN_PAST · 404 Agent · 403 QUOTA_EXCEEDED · 409 AGENT_UNAVAILABLE → nic se neuloží</li>
+                </ul>
+              </div>
+              <p className="mono muted" style={{ fontSize: 18 }}>
+                docs/c02/operations/op-01-create-reservation.md
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 18 }}>
+              <div className="card" style={{ padding: '24px 30px' }}>
+                <span className="tag" style={{ marginBottom: 8 }}>
+                  BR-02 · VERIFICATION EXAMPLE
+                </span>
+                <p className="mono" style={{ fontSize: 21, color: 'var(--ink)' }}>
+                  překryv ⇔ existing.start &lt; requested.end ∧ existing.end &gt; requested.start
+                </p>
+              </div>
+              <DiagramStepper animation={regionFadeIn} steps={[{ show: ['touch'] }, { show: ['overlap'] }]}>
+                <IntervalDiagram />
+              </DiagramStepper>
+            </div>
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide steps={4} notes="Povinná změna C02 v0.2: Agent s requiresApproval vytváří PENDING_APPROVAL. Schválení je druhá cesta do CONFIRMED, a proto musí BR-02 znovu ověřit. PENDING neblokuje dostupnost, ale počítá se do limitu BR-04.">
+        <Frame title="Změna v0.2: druhá cesta do CONFIRMED vede přes Admina." section="A1 · Scope">
           <div className="body" style={{ display: 'grid', gridTemplateRows: '1fr auto', gap: 24 }}>
             <DiagramStepper
               animation={regionFadeIn}
@@ -286,200 +275,96 @@ export default function AgentReservationsPitch() {
               <StateDiagram />
             </DiagramStepper>
             <p className="muted" style={{ fontSize: 24 }}>
-              O každém přechodu rozhoduje <b style={{ color: 'var(--ink)' }}>Reservation Service</b>. User i Admin o něj jen žádají.
+              v0.1: <code>[none] → CONFIRMED</code> v jednom kroku. v0.2: <code>PENDING_APPROVAL</code> neblokuje Agenta, ale počítá se do BR-04; vyprší v{' '}
+              <code>now ≥ startTime</code> (REQ-12).
             </p>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="Klíčový scénář z C03. Dvě překrývající se žádosti o Claude Opus 5 čekají na schválení. Admin nejdřív schválí Petrovu. Když pak klikne na Schválit u Janiny, služba uvnitř transakce znovu ověří BR-02 a odmítne s 409 AGENT_UNAVAILABLE; Janina žádost dál čeká.">
-        <Frame title="Opožděné schválení exkluzivitu neprolomí.">
-          <div className="body grid cols-2" style={{ gap: 48, alignContent: 'start' }}>
-            <div>
-              <Browser src={asset('screenshots/admin-pending-before.png')} url="localhost:3000/admin" alt="Fronta žádostí ke schválení" crop={{ x: 0.1, w: 0.8 }} style={{ height: 470 }} />
-              <h3 style={{ marginTop: 30 }}>1 · Čekají dvě překrývající se žádosti</h3>
-              <p className="muted" style={{ fontSize: 24, marginTop: 8 }}>
-                Claude Opus 5 · Jana 10:00–13:00 a Petr 11:00–12:30. Čekající žádosti se navzájem neblokují.
-              </p>
+      {/* ---------- 2 · Architecture ---------- */}
+
+      <Slide notes="Driver je problém, ne řešení: souběžné požadavky a odložené schválení musí dojít k jedinému autoritativnímu rozhodnutí. AS-IS nález: šest Route Handlers zapisovalo stav. Tabulka ukazuje, kdo co po C03 a C05 vlastní.">
+        <Frame title="Driver a vlastníci odpovědností." section="A2 · Architecture">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr', gap: 56, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gap: 26 }}>
+              <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
+                <span className="tag" style={{ color: 'var(--confirmed)' }}>
+                  DRIVER · BR-02 · REQ-07 · REQ-10
+                </span>
+                <p style={{ color: 'var(--ink-2)' }}>Oddělené požadavky vidí stejný volný termín. Create i pozdější Approve musí skončit jediným autoritativním „ano“.</p>
+              </div>
+              <div className="card">
+                <span className="tag" style={{ color: 'var(--rejected)' }}>
+                  AS-IS NÁLEZ (C03 ČÁST A)
+                </span>
+                <p>Šest Route Handlers zapisovalo stav Reservation, výraz překryvu existoval třikrát.</p>
+              </div>
             </div>
-            <Fragment>
-              <Browser src={asset('screenshots/admin-approve-conflict.png')} url="localhost:3000/admin" alt="Schválení odmítnuto kvůli konfliktu" crop={{ x: 0.1, w: 0.8 }} style={{ height: 470 }} />
-              <h3 style={{ marginTop: 30 }}>2 · Petr schválen první → Janino schválení odmítnuto</h3>
-              <p className="muted" style={{ fontSize: 24, marginTop: 8 }}>
-                Znovu ověřeno v transakci schválení: <code>409 AGENT_UNAVAILABLE</code>, žádost zůstává <Pill status="PENDING_APPROVAL" />
-              </p>
-            </Fragment>
-          </div>
-        </Frame>
-      </Slide>
-
-      {/* ---------------------------------------------------------- */}
-      {/* 02 · Architektura                                          */}
-      {/* ---------------------------------------------------------- */}
-
-      <Slide>
-        <Frame dark section="Architektura">
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Jeden owner každého rozhodnutí o rezervaci.</h1>
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="C01 začínal šesti případy užití a okamžitým potvrzením. Povinná změna v0.2 přidala schvalování (UC8), kontrolu dostupnosti (UC7) a tři nové stavy. Architektura musela pojmout rozhodnutí, které teď padá později než žádost.">
-        <Frame title="Rozsah rostl. Model držel krok." section="Architektura">
-          <div className="body">
-            <TwoColumnLayout
-              ratio="1fr 1fr"
-              gap="48px"
-              align="stretch"
-              left={
-                <div className="card" style={{ height: '100%', display: 'grid', gridTemplateRows: '1fr auto', gap: 20 }}>
-                  <img src={asset('images/use-case-v01.png')} alt="Případy užití v0.1" style={{ width: '100%', height: 470, objectFit: 'contain' }} />
-                  <div>
-                    <span className="tag">BASELINE v0.1</span>
-                    <p>UC1–UC6 · vytvoření ověří a potvrdí rezervaci v jednom kroku. Stavy: CONFIRMED, CANCELLED.</p>
-                  </div>
-                </div>
-              }
-              right={
-                <Fragment className="card" style={{ height: '100%', display: 'grid', gridTemplateRows: '1fr auto', gap: 20 }}>
-                  <img src={asset('images/use-case-v02.png')} alt="Případy užití v0.2" style={{ width: '100%', height: 470, objectFit: 'contain' }} />
-                  <div>
-                    <span className="tag" style={{ color: 'var(--confirmed)' }}>BASELINE v0.2</span>
-                    <p>+ UC7 dostupnost, UC8 schválení / zamítnutí · + PENDING_APPROVAL, REJECTED, EXPIRED · skutečné přihlašování.</p>
-                  </div>
-                </Fragment>
-              }
-            />
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="Architecture drivers jsou problémy, ne řešení. Reservation Service nebo samostatná služba jsou kandidátní odpovědi, nikoli drivers.">
-        <Frame title="Na co musí architektura odpovědět." section="Architektura">
-          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
             <table className="t">
               <thead>
                 <tr>
-                  <th style={{ width: '22%' }}>Zdroj</th>
-                  <th style={{ width: '38%' }}>Tlak</th>
-                  <th>Otázka, kterou vyvolává</th>
+                  <th style={{ width: '45%' }}>Odpovědnost</th>
+                  <th>Vlastník</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="mono">BR-02 · REQ-07/10</td>
-                  <td>Oddělené požadavky mohou vidět stejný volný termín a předhánět se v zápisu.</td>
-                  <td>Kde padá jediné autoritativní „ano“?</td>
-                </tr>
-                <tr>
-                  <td className="mono">REQ-09 … 11</td>
-                  <td>PENDING musí přežít původní požadavek a při rozhodnutí se znovu ověřit.</td>
-                  <td>Kdo vlastní čekající stav a pozdější schválení / zamítnutí?</td>
-                </tr>
-                <tr>
-                  <td className="mono">REQ-12</td>
-                  <td>Vypršení při <code>now ≥ startTime</code> může odhalit libovolné čtení i příkaz.</td>
-                  <td>Kdo uplatňuje vypršení jednotně?</td>
-                </tr>
-                <tr>
-                  <td className="mono">AR-01</td>
-                  <td>Data v požadavku nejsou identita; OP-05 smí jen Admin.</td>
-                  <td>Kde se odděluje autentizace od doménových pravidel?</td>
-                </tr>
-                <tr>
-                  <td className="mono">Zjištění AS-IS</td>
-                  <td>Šest Route Handlers zapisovalo stav životního cyklu přímo.</td>
-                  <td>Jaké pravidlo zabrání, aby se z adaptérů stali vlastníci?</td>
-                </tr>
+                {[
+                  ['Lifecycle, BR-02 rozhodnutí, transakce, expirace', 'Reservation Service'],
+                  ['Pravidla jako čisté funkce (C05)', 'Reservation Policy'],
+                  ['Session, role, AR-01', 'Session & Auth'],
+                  ['HTTP vstup / výstup, kód → status', 'Route Handlers'],
+                  ['Ukládání, serializace zápisů', 'Prisma + SQLite'],
+                ].map(([r, o], i) => (
+                  <tr key={r} className={i === 0 ? 'hl' : undefined}>
+                    <td>{r}</td>
+                    <td className="mono" style={{ fontWeight: 600 }}>
+                      {o}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="Obě alternativy chování zvládnou. Projděte scénář: čekající žádost, vznikne překryv, Admin schvaluje. B funguje jen tehdy, když služba výhradně vlastní svou databázi, a přidává způsoby selhání sítě, pro které nemáme žádný driver.">
-        <Frame
-          title="Kde má žít autoritativní rozhodnutí o životním cyklu?"
-          section="Architektura"
-        >
+      <Slide steps={3} notes="Obě alternativy jsme prošli stejným scénářem: čekající žádost, mezitím vznikne překryv, Admin schvaluje. B je korektní jen s výhradně vlastněnou DB a přidává síťové chyby, pro které nemáme driver. ADR-001 volí A a pojmenovává, kdy rozhodnutí přehodnotit.">
+        <Frame title="Alternativy a ADR-001." section="A2 · Architecture">
           <div className="body grid cols-2" style={{ gap: 40, alignContent: 'center' }}>
             <Fragment step={1} className="card" style={{ position: 'relative' }}>
               <span className="tag">ALTERNATIVA A</span>
               <Fragment step={3} style={{ position: 'absolute', top: 30, right: 32 }}>
                 <Pill status="CONFIRMED">ZVOLENO · ADR-001</Pill>
               </Fragment>
-              <h3>Reservation Service uvnitř současné aplikace</h3>
+              <h3>Reservation Service v modulárním monolitu</h3>
               <p className="mono" style={{ fontSize: 22, margin: '18px 0', color: 'var(--ink-2)' }}>
-                API adaptéry → Reservation Service → SQLite (Prisma)
+                API adaptéry → Reservation Service → SQLite
               </p>
               <ul className="clean small">
                 <li>Kontrola i zápis v jedné lokální transakci</li>
-                <li>Žádná další služba k nasazení, síťové volání ani strategie opakování</li>
-                <li>Identita se ověří jednou, uvnitř procesu</li>
+                <li>Žádná další služba, síťové volání ani retry politika</li>
+                <li>Přehodnotit při více procesech nebo jiné DB</li>
               </ul>
             </Fragment>
             <Fragment step={2} className="card">
               <span className="tag">ALTERNATIVA B</span>
               <h3>Samostatná Reservation Decision Service</h3>
               <p className="mono" style={{ fontSize: 22, margin: '18px 0', color: 'var(--ink-2)' }}>
-                Next.js —HTTP→ Decision Service → vlastní databáze
+                Next.js —HTTP→ Decision Service → vlastní DB
               </p>
               <ul className="clean small red">
-                <li>Vyžaduje výhradně vlastněnou DB nebo distribuovanou konzistenci</li>
-                <li>Volající musí odlišit doménový konflikt od výpadku sítě</li>
-                <li>Podepsaná identita mezi službami, nasazení, kontroly stavu, verzování</li>
+                <li>Korektní jen s výhradně vlastněnou DB</li>
+                <li>Volající musí odlišit konflikt od výpadku sítě</li>
+                <li>Identita mezi službami, nasazení, verzování</li>
               </ul>
             </Fragment>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="Stejný scénář prošlý oběma variantami. A vítězí přiměřeností, ne schopnostmi.">
-        <Frame title="Stejná správnost. Zlomek pohyblivých částí." section="Architektura">
-          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th style={{ width: '20%' }}>Kritérium</th>
-                  <th style={{ width: '40%' }}>A · modulární monolit</th>
-                  <th>B · samostatná služba</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="mono">BR-02</td>
-                  <td className="win">Jedna metoda služby, jedna lokální transakce</td>
-                  <td className="lose">Jen pokud služba výhradně vlastní svou DB</td>
-                </tr>
-                <tr>
-                  <td className="mono">Odložené schválení</td>
-                  <td className="win">PENDING zůstává v SQLite; každý pozdější požadavek dojde ke stejnému vlastníkovi</td>
-                  <td className="lose">Funguje, ale každé rozhodnutí potřebuje běžící službu a síťové volání</td>
-                </tr>
-                <tr>
-                  <td className="mono">Vypršení</td>
-                  <td className="win">Jeden modul, jedno časové pravidlo pro čtení i příkazy</td>
-                  <td className="lose">Jednotné, ale volající řeší vzdálené chyby a vypršené limity</td>
-                </tr>
-                <tr>
-                  <td className="mono">Hranice důvěry</td>
-                  <td className="win">Adaptér ověří Session a předá typovaného aktéra</td>
-                  <td className="lose">Identita putuje sítí, potřebuje podepsané přihlašovací údaje</td>
-                </tr>
-                <tr>
-                  <td className="mono">Provoz</td>
-                  <td className="win">Žádné nové nasazení, databáze ani další věc ke sledování</td>
-                  <td className="lose">Nasazení, kontroly stavu, opakování, verzování, vlastnictví DB</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide steps={6} notes="Statický pohled skládejte po krocích: UI, tenké HTTP adaptéry, Session & Auth vedle Reservation Service, čistá Policy (přidaná v C05), Prisma a SQLite. Poslední krok: zakázaná hrana. Adaptéry nesmí zapisovat stav Reservation; pokud to udělají, npm run test:architecture selže.">
-        <Frame title="Tenké adaptéry. Jeden vlastník životního cyklu. Jeden proces." section="Architektura">
+      <Slide steps={6} notes="Statický pohled po krocích. Poslední krok: zakázaná hrana. Adaptéry nesmí zapisovat stav Reservation; npm run test:architecture to hlídá a byl ověřen i negativně.">
+        <Frame title="Statický pohled: tenké adaptéry, jeden vlastník." section="A2 · Architecture">
           <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
             <DiagramStepper
               animation={regionFadeIn}
@@ -498,8 +383,8 @@ export default function AgentReservationsPitch() {
         </Frame>
       </Slide>
 
-      <Slide steps={2} notes="Stav AS-IS z C03 části A: handlery pro vytvoření, zrušení a rozhodnutí zapisovaly stav a tři seznamové handlery nechávaly čekající žádosti vypršet přes updateMany. Výraz pro překryv existoval třikrát. Po C03 vede každá cesta přes jednu službu; C05 vytáhl pravidla do čisté policy.">
-        <Frame title="Od šesti zapisovatelů k jedinému vlastníkovi." section="Architektura">
+      <Slide steps={2} notes="AS-IS → TO-BE. Vlevo stav před C03, vpravo po C03 a C05: každá cesta vede přes jednu službu, překryv má jednu definici.">
+        <Frame title="AS-IS → TO-BE: od šesti zapisovatelů k jednomu." section="A2 · Architecture">
           <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
             <DiagramStepper animation={regionFadeIn} steps={[{ show: ['tobe'] }, { show: ['svc'], highlight: ['svc'] }]}>
               <OwnershipDiagram />
@@ -508,55 +393,23 @@ export default function AgentReservationsPitch() {
         </Frame>
       </Slide>
 
-      <Slide notes="Nudné záměrně. SQLite v jednom procesu řadí zápisy za sebe, a právě proto je záruka při souběhu levná. ADR pojmenovává, kdy to přestane platit.">
-        <Frame title="Záměrně nudná infrastruktura." section="Architektura">
-          <div className="body grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 28, alignContent: 'center' }}>
-            <div className="card">
-              <div className="big-num">1</div>
-              <h3 style={{ marginTop: 18 }}>nasazovaná aplikace</h3>
-              <p>Proces Next.js / Node.js obsluhuje UI, API i doménovou logiku.</p>
-            </div>
-            <div className="card">
-              <div className="big-num">0</div>
-              <h3 style={{ marginTop: 18 }}>síťových volání na rozhodnutí</h3>
-              <p>Kontrola i zápis proběhnou v jedné lokální transakci.</p>
-            </div>
-            <div className="card">
-              <div className="big-num">1</div>
-              <h3 style={{ marginTop: 18 }}>databázový soubor</h3>
-              <p>SQLite přes adaptér better-sqlite3. Zápisy probíhají jeden po druhém.</p>
-            </div>
-            <div style={{ gridColumn: 'span 3', marginTop: 20 }}>
-              <span className="tag">TECHNOLOGIE</span>
-              <div className="row" style={{ gap: 14, flexWrap: 'wrap' }}>
-                {['Next.js 16.3', 'React 19.2', 'TypeScript 5', 'Prisma 7.10', 'SQLite', 'Tailwind CSS 4', 'testovací skripty (tsx)', 'GitHub Actions CI'].map((s) => (
-                  <Pill key={s} status="ghost">
-                    {s}
-                  </Pill>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Frame>
-      </Slide>
-
-      {/* ---------------------------------------------------------- */}
-      {/* 03 · Detailní návrh                                       */}
-      {/* ---------------------------------------------------------- */}
-
-      <Slide>
-        <Frame dark section="Detailní návrh">
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Pravidla jako pure funkce.</h1>
-            <p className="lede" style={{ fontSize: 36 }}>
-              Logika aplikace je ve funkcionálním stylu pro přehlednost a testovatelnost.
+      <Slide steps={3} notes="Dynamický pohled odpovídá skutečné cestě v kódu: decision/route.ts ověří Admina a volá decideReservation. Uvnitř jedné transakce se znovu načte překryv; policy vrátí AGENT_UNAVAILABLE, transakce se vrátí a adaptér vrátí 409. C06 to ověřilo jako A3: YES.">
+        <Frame title="Dynamický pohled: Approve s konfliktem vzniklým během čekání." section="A2 · Architecture">
+          <div className="body" style={{ display: 'grid', gridTemplateRows: '1fr auto', gap: 16 }}>
+            <DiagramStepper animation={regionFadeIn} steps={[{ show: ['call'] }, { show: ['checks'] }, { show: ['conflict'] }]}>
+              <SequenceDiagram />
+            </DiagramStepper>
+            <p className="mono muted" style={{ fontSize: 19 }}>
+              src/app/api/reservations/[id]/decision/route.ts → src/lib/reservation-service.ts → src/lib/reservation-policy.ts
             </p>
           </div>
         </Frame>
       </Slide>
 
-      <Slide steps={4} notes="reservation-policy.ts nemá žádný import, hlídá to kontrola architektury. Projděte: špatný stav, hranice startTime (platí i pro zamítnutí), plán a nakonec kontroly potvrzení v záměrném pořadí: neaktivní agent má přednost před překryvem.">
-        <Frame title="Pravidla se vejdou na jednu obrazovku — a nepotřebují databázi." section="Detailní návrh">
+      {/* ---------- 3 · Detailed Design ---------- */}
+
+      <Slide steps={4} notes="Jednotka z C05: reservation-policy.ts, bez importů. Projděte: špatný stav, hranice startTime (platí i pro zamítnutí), plán místo vedlejšího efektu a nakonec kontroly potvrzení v pevném pořadí.">
+        <Frame title="Kontrakt jednotky: plán rozhodnutí a podmínky potvrzení." section="A3 · Detailed Design">
           <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.35fr 0.65fr', gap: 56, alignItems: 'center' }}>
             <div style={{ display: 'grid' }}>
               <Fragment step={[1, 2, 3]} className="code-panel" style={{ gridArea: '1 / 1' }}>
@@ -581,13 +434,13 @@ export default function AgentReservationsPitch() {
             <div style={{ display: 'grid' }}>
               {[
                 ['Rozhodovat lze jen o PENDING', 'Cokoli jiného je INVALID_STATE → 409.'],
-                ['Čas má přednost před Adminem', 'Od startTime žádost vyprší — i při zamítnutí.'],
-                ['Plán, ne vedlejší efekt', 'Policy vrátí, co se má stát; provede to služba.'],
-                ['Kontroly v pevném pořadí', 'Nejdřív neaktivní agent, pak překryv BR-02 načtený uvnitř transakce.'],
+                ['Hranice: now ≥ startTime', 'Žádost vyprší — i při zamítnutí. Stejný zdroj času jako BR-03.'],
+                ['Plán, ne vedlejší efekt', 'Policy vrátí, co se má stát; zápis provede service.'],
+                ['Kontroly v pevném pořadí', 'Nejdřív neaktivní Agent, pak překryv BR-02 načtený v transakci.'],
               ].map(([h, p], i) => (
                 <Fragment key={h} step={i + 1} exit={i + 2} style={{ gridArea: '1 / 1' }}>
                   <span className="tag" style={{ color: 'var(--confirmed)' }}>
-                    KROK {i + 1} / 4
+                    VĚTEV {i + 1} / 4
                   </span>
                   <h3>{h}</h3>
                   <p className="muted" style={{ fontSize: 26, marginTop: 12 }}>
@@ -600,179 +453,185 @@ export default function AgentReservationsPitch() {
         </Frame>
       </Slide>
 
-      <Slide notes="Policy vyhazuje ReservationRuleViolation s doménovým kódem. api-error-response.ts je jediné místo, kde se z kódu stává HTTP status. Tím se opravilo skutečné zjištění z revize: policy dřív vyhazovala HTTP chyby.">
-        <Frame title="Doména mluví v kódech. HTTP mluví jen adaptér." section="Detailní návrh">
-          <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 64, alignItems: 'center' }}>
-            <table className="t">
+      <Slide notes="Každá větev z předchozího slidu má svůj test. Unit tam, kde jde o čistou funkci a hranici času; component/integration tam, kde konflikt vzniká až čtením z databáze v transakci.">
+        <Frame title="Větve → testy odvozené z DD." section="A3 · Detailed Design">
+          <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 28 }}>
+            <table className="t compact">
               <thead>
                 <tr>
-                  <th>ReservationRuleCode</th>
-                  <th>Význam</th>
-                  <th style={{ textAlign: 'right' }}>HTTP</th>
+                  <th style={{ width: '27%' }}>Větev / hranice</th>
+                  <th style={{ width: '22%' }}>Očekávaný výsledek</th>
+                  <th>Test</th>
+                  <th style={{ width: '11%' }}>Úroveň</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  ['NOT_OWNER', 'aktér není vlastník ani ADMIN', 403],
-                  ['QUOTA_EXCEEDED', 'BR-04 by byl překročen', 403],
-                  ['INVALID_STATE', 'zdrojový stav přechod nepovoluje', 409],
-                  ['AFTER_START', 'now ≥ startTime', 409],
-                  ['AGENT_INACTIVE', 'BR-05', 409],
-                  ['AGENT_UNAVAILABLE', 'BR-02 · existuje překrývající se CONFIRMED', 409],
-                ].map(([code, meaning, http]) => (
-                  <tr key={code}>
+                  ['status ≠ PENDING_APPROVAL', 'INVALID_STATE', 'decision: only PENDING_APPROVAL can be decided', 'unit'],
+                  ['now = startTime (hranice)', 'EXPIRE, i pro REJECT', 'decision: at startTime pending expires regardless of decision', 'unit'],
+                  ['now < startTime', 'REJECT / CONFIRM_CHECKS', 'decision: before startTime REJECT is final, APPROVE needs confirm checks', 'unit'],
+                  ['neaktivní Agent + překryv', 'AGENT_INACTIVE dřív než AGENT_UNAVAILABLE', 'confirm: inactive agent and later overlap are refused; activity is checked first', 'unit'],
+                  ['překryv vznikl během čekání', '409, zůstává PENDING_APPROVAL', 'OP-05 rechecks overlap that appeared while waiting', 'component'],
+                ].map(([b, e, t, l]) => (
+                  <tr key={t}>
+                    <td>{b}</td>
                     <td className="mono" style={{ fontWeight: 600 }}>
-                      {code}
+                      {e}
                     </td>
-                    <td className="muted">{meaning}</td>
-                    <td className="mono" style={{ textAlign: 'right', fontWeight: 600 }}>
-                      {http}
-                    </td>
+                    <td className="mono muted">{t}</td>
+                    <td>{l}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div className="card" style={{ background: 'var(--ink)', color: '#f4f2ec', border: 0 }}>
-              <span className="tag" style={{ color: '#34d399' }}>
-                SMĚR ZÁVISLOSTÍ
-              </span>
-              <p className="mono" style={{ color: '#f4f2ec', fontSize: 23, lineHeight: 1.9 }}>
-                Route Handler
-                <br />→ reservation-service
-                <br />→ reservation-policy
-                <br />
-                <span style={{ color: '#34d399' }}>importy policy: 0</span>
-              </p>
-              <p style={{ color: '#a3a8b2', fontSize: 21, marginTop: 18 }}>Hlídá npm run test:architecture.</p>
-            </div>
+            <p className="muted" style={{ fontSize: 22 }}>
+              <code>scripts/c05-unit-tests.ts</code> (bez DB) · <code>scripts/c02-verification.ts</code> (HTTP + SQLite) · mapování v <code>docs/c05/detailed-design.md §10</code>
+            </p>
           </div>
         </Frame>
       </Slide>
 
-      {/* ---------------------------------------------------------- */}
-      {/* 04 · Ověření                                              */}
-      {/* ---------------------------------------------------------- */}
+      {/* ---------- 4 · Verification & Evidence ---------- */}
 
-      <Slide>
-        <Frame dark section="Ověření">
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Ověřeno, ne jen slíbeno.</h1>
-          </div>
-        </Frame>
-      </Slide>
-
-      <Slide notes="Poslední běh 2026-10-19 po opravách v0.2.1 nad čistou databází SQLite. Jednotkové testy nepotřebují databázi ani běžící aplikaci. Sada C02 prověřuje HTTP + SQLite včetně souběžného vytvoření a schválení; spuštěna dvakrát po sobě proti produkčnímu buildu.">
-        <Frame title="Za každou garancí stojí test." section="Ověření">
-          <div className="body grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 28, alignContent: 'center' }}>
-            <div className="card">
-              <div className="big-num em-green">20/20</div>
-              <h3 style={{ marginTop: 20 }}>jednotkových testů policy</h3>
-              <p>
-                <code>test:c05</code> · hranice, idempotence, vypršení, pořadí kontrol, BR-06. Bez DB.
-              </p>
-            </div>
-            <div className="card">
-              <div className="big-num em-green">31/31</div>
-              <h3 style={{ marginTop: 20 }}>end-to-end scénářů</h3>
-              <p>
-                <code>test:c02</code> · HTTP + SQLite, přihlášení, souběh, BR-06, chybná data v požadavku.
-              </p>
-            </div>
-            <div className="card">
-              <div className="big-num em-green">PASS</div>
-              <h3 style={{ marginTop: 20 }}>architektonické pravidlo</h3>
-              <p>
-                <code>test:architecture</code> · jediný zapisovatel, transakce, policy bez importů.
-              </p>
-            </div>
-            <div className="card">
-              <div className="big-num em-green">PASS</div>
-              <h3 style={{ marginTop: 20 }}>spike ukládání dat</h3>
-              <p>
-                <code>test:api-persistence</code> · ID z API = ID načtené zpět z DB.
-              </p>
-            </div>
-            <div style={{ gridColumn: 'span 4' }} className="row">
-              <Pill status="CONFIRMED">lint · PASS</Pill>
-              <Pill status="CONFIRMED">typecheck · PASS</Pill>
-              <Pill status="CONFIRMED">next build · PASS</Pill>
-              <span className="muted" style={{ fontSize: 22, marginLeft: 12 }}>
-                Kontrola architektury ověřena i negativně: podstrčené <code>db.reservation.update(</code> ji shodí.
+      <Slide notes="Tři případy ze skutečného běhu test:c02 dne 2026-10-19 na čisté SQLite proti next build + next start, dvakrát po sobě. Oracle je přesný HTTP status a stav. Na reporting baseline je potřeba běh zopakovat — to je akce 4 v části C.">
+        <Frame title="Expected vs. observed." section="A4 · Evidence">
+          <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 32 }}>
+            <table className="t compact">
+              <thead>
+                <tr>
+                  <th style={{ width: '13%' }}>Typ</th>
+                  <th style={{ width: '33%' }}>Případ (test:c02)</th>
+                  <th style={{ width: '23%' }}>Expected (oracle)</th>
+                  <th style={{ width: '20%' }}>Observed</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>pozitivní</td>
+                  <td className="mono">OP-01 creates a CONFIRMED Reservation without approval</td>
+                  <td className="mono">201 · CONFIRMED · id</td>
+                  <td className="mono">201 · CONFIRMED · id</td>
+                  <td>
+                    <V v="YES" />
+                  </td>
+                </tr>
+                <tr>
+                  <td>hraniční</td>
+                  <td className="mono">OP-02 applies half-open interval boundaries</td>
+                  <td className="mono">[9,10) AVAILABLE · [8:30,9:30) UNAVAILABLE</td>
+                  <td className="mono">AVAILABLE · UNAVAILABLE</td>
+                  <td>
+                    <V v="YES" />
+                  </td>
+                </tr>
+                <tr>
+                  <td>negativní · souběh</td>
+                  <td className="mono">OP-03 allows at most one concurrent conflicting Create</td>
+                  <td className="mono">statuses = [201, 409]</td>
+                  <td className="mono">[201, 409]</td>
+                  <td>
+                    <V v="YES" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="row" style={{ flexWrap: 'wrap', gap: 14 }}>
+              <Pill status="CONFIRMED">test:c05 · 20/20</Pill>
+              <Pill status="CONFIRMED">test:c02 · 31/31</Pill>
+              <Pill status="CONFIRMED">test:architecture · PASS</Pill>
+              <Pill status="CONFIRMED">lint · typecheck · build · PASS</Pill>
+              <span className="muted" style={{ fontSize: 21 }}>
+                běh 2026-10-19, čistá SQLite, <code>next build</code> + <code>next start</code>
               </span>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="Čtyři kontrolní body kurzu, každý zanechal doklady v docs/.">
-        <Frame title="Jak jsme se sem dostali." section="Ověření">
-          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
-            <div className="timeline" style={{ width: '100%' }}>
-              <Fragment className="milestone">
-                <span className="tag">C01 · SPIKE</span>
-                <h3>Dokážeme to uložit?</h3>
-                <p>POST → SQLite → zpětné načtení. Prisma + SQLite zůstaly jako vrstva ukládání dat pro walking skeleton.</p>
-              </Fragment>
-              <Fragment className="milestone">
-                <span className="tag">C02 · SPECIFIKACE</span>
-                <h3>Pravidla a operace</h3>
-                <p>BR-01…05, OP-01…05, změna v0.2 se schvalováním, skutečné přihlašování, 25 E2E scénářů.</p>
-              </Fragment>
-              <Fragment className="milestone">
-                <span className="tag">C03 · ARCHITEKTURA</span>
-                <h3>Jeden vlastník životního cyklu</h3>
-                <p>Architecture drivers, alternativy, ADR-001, sedm konzistentních pohledů, kontrola souladu s architekturou.</p>
-              </Fragment>
-              <Fragment className="milestone">
-                <span className="tag">C05 · DETAILNÍ NÁVRH</span>
-                <h3>Čistá policy</h3>
-                <p>Kontrakty, rozhodovací tabulky, 16 odvozených jednotkových testů, revize návrhu vůči kódu. Tag c05-detailed-design.</p>
-              </Fragment>
+      <Slide notes="C04: concern je integrita pod souběhem. Kritérium je PASS/FAIL, jedno porušení = FAIL. Měřeno zatím jen K = 2 — dvojice požadavků může doběhnout náhodně sekvenčně, takže tvrzení o souběhu obecně je PARTLY. Rozhodnutí: ponechat ADR-001, rozšířit měření.">
+        <Frame title="C04: co znamená quality criterion." section="A4 · Evidence">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 48, alignItems: 'center' }}>
+            <table className="t compact">
+              <thead>
+                <tr>
+                  <th style={{ width: '12%' }}>ID</th>
+                  <th>Criterion (oracle)</th>
+                  <th style={{ width: '10%' }}>K</th>
+                  <th style={{ width: '16%' }}>Výsledek</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="mono">QC-01</td>
+                  <td>K souběžných Create na stejný interval → právě 1× 201, K−1× 409, 0× 5xx</td>
+                  <td className="mono">2</td>
+                  <td>
+                    <Pill status="CONFIRMED">PASS</Pill>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="mono">QC-02</td>
+                  <td>2 souběžná Approve překrývajících se žádostí → 1× 200, 1× 409</td>
+                  <td className="mono">2</td>
+                  <td>
+                    <Pill status="CONFIRMED">PASS</Pill>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="mono">QC-01</td>
+                  <td>totéž pro K = 10, R = 5 opakování</td>
+                  <td className="mono">10</td>
+                  <td>
+                    <Pill status="PENDING_APPROVAL">OPEN</Pill>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="mono">QC-03</td>
+                  <td>souběžné Create proti limitu BR-04 → nejvýše 1× 201</td>
+                  <td className="mono">10</td>
+                  <td>
+                    <Pill status="PENDING_APPROVAL">OPEN</Pill>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="mono">QC-04</td>
+                  <td>v DB 0 dvojic překrývajících se CONFIRMED</td>
+                  <td className="mono">–</td>
+                  <td>
+                    <Pill status="PENDING_APPROVAL">OPEN</Pill>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ display: 'grid', gap: 24 }}>
+              <div className="card">
+                <span className="tag">PODMÍNKY MĚŘENÍ</span>
+                <p>
+                  <code>next build</code> + <code>next start</code>, jeden proces, čistá SQLite, <code>Promise.all</code> nad <code>fetch</code>.
+                </p>
+              </div>
+              <div className="card" style={{ borderColor: 'var(--pending)', borderWidth: 3 }}>
+                <span className="tag">ROZHODNUTÍ</span>
+                <p style={{ color: 'var(--ink-2)' }}>Ponechat ADR-001 beze změny kódu. Rozšířit měření; při kterémkoli FAIL přejít na DB constraint nebo retry.</p>
+              </div>
+              <p className="mono muted" style={{ fontSize: 18 }}>
+                docs/c04/quality-and-measurement.md (PR #15)
+              </p>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="Pojmenovaná rizika, ne skrytá. Další tlak, který jsme vybrali (kategorie R), je selhání agenta těsně před rezervovaným oknem. Náčrt ukazuje zvažované možnosti: zkrátit, posunout, nebo přeskládat rozvrh.">
-        <Frame title="Známé limity." section="Ověření">
-          <div className="body grid" style={{ gridTemplateColumns: '1fr 0.9fr', gap: 56, alignItems: 'center' }}>
-            <div style={{ display: 'grid', gap: 40 }}>
-              <div>
-                <span className="tag" style={{ color: 'var(--rejected)' }}>ZBÝVAJÍCÍ RIZIKA</span>
-                <ul className="clean small red">
-                  <li>Bezpečnost při souběhu stojí na tom, že SQLite v jednom procesu řadí zápisy za sebe</li>
-                  <li>Omezení pokusů o přihlášení drží stav v paměti, platí jen pro jeden proces</li>
-                  <li>Kontrola architektury stojí na regulárních výrazech, ne na AST</li>
-                </ul>
-              </div>
-              <div>
-                <span className="tag" style={{ color: 'var(--confirmed)' }}>DÁLE</span>
-                <ul className="clean small">
-                  <li>Přesunout kontrolu BR-05 při vytvoření ze služby do policy</li>
-                  <li>Před změnou databáze rozhodnout o izolaci / zamykání</li>
-                  <li>Výpadek agenta: zkrátit, posunout nebo přeskládat dotčené rezervace</li>
-                </ul>
-              </div>
-            </div>
-            <div className="card" style={{ padding: 28 }}>
-              <span className="tag">BUDOUCÍ TLAK · AGENT SELŽE TĚSNĚ PŘED REZERVACÍ</span>
-              <img src={asset('images/outage-options.webp')} alt="Náčrt možností řešení výpadku" style={{ width: '100%', height: 560, objectFit: 'contain' }} />
-            </div>
-          </div>
-        </Frame>
-      </Slide>
+      {/* ---------- 5 · C06 Findings & Engineering Decision ---------- */}
 
-      {/* ---------------------------------------------------------- */}
-      {/* 05 · Review (C06)                                          */}
-      {/* ---------------------------------------------------------- */}
-
-      <Slide notes="C06 review od týmu Parking reservation system (JEC0014, TOK0030, SIK0224), 24. 10. 2026 na commitu f200832. Z 19 bodů 14× YES, 2× PARTLY, 3× NO. Všechna NO jsou z jediné oblasti: chybějící C04. Architektura a detailní návrh prošly bez výhrad.">
-        <Frame title="Review od týmu Parking reservation system" section="Review">
-          <div className="body grid" style={{ gridTemplateColumns: '1.2fr 0.8fr', gap: 48, alignContent: 'center' }}>
-            <div className="card" style={{ display: 'grid', gap: 22 }}>
+      <Slide notes="C06 od týmu Parking reservation system, 24. 10. 2026 na f200832. 14× YES, 2× PARTLY, 3× NO. Všechna NO mají jednu příčinu: chybějící C04. Vpravo disposition všech tří nálezů.">
+        <Frame title="C06: skóre a disposition nálezů." section="A5 · C06">
+          <div className="body grid" style={{ gridTemplateColumns: '0.85fr 1.15fr', gap: 48, alignContent: 'center' }}>
+            <div className="card" style={{ display: 'grid', gap: 20 }}>
               {REVIEW_SCORECARD.map(([area, items]) => (
-                <div key={area} style={{ display: 'grid', gridTemplateColumns: '240px 1fr', alignItems: 'center', gap: 16 }}>
-                  <span style={{ fontSize: 24, fontWeight: 600 }}>{area}</span>
+                <div key={area} style={{ display: 'grid', gap: 10 }}>
+                  <span style={{ fontSize: 22, fontWeight: 600 }}>{area}</span>
                   <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                     {items.map(([id, verdict]) => (
                       <Pill key={id} status={VERDICT_PILL[verdict]}>
@@ -782,89 +641,387 @@ export default function AgentReservationsPitch() {
                   </div>
                 </div>
               ))}
-              <p className="muted" style={{ fontSize: 21, borderTop: '1px solid var(--line)', paddingTop: 18 }}>
-                14× YES, 2× PARTLY, 3× NO. Hodnoceno 24. 10. 2026 na commitu <code>f200832</code>.
+              <p className="muted" style={{ fontSize: 20, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+                14× YES · 2× PARTLY · 3× NO · commit <code>{ASSESSED_BASELINE}</code>
               </p>
             </div>
-            <div style={{ display: 'grid', gap: 36 }}>
-              <div>
-                <span className="tag" style={{ color: 'var(--confirmed)' }}>CO SE JIM LÍBILO</span>
-                <ul className="clean small">
-                  <li>Aplikace i testy jdou spustit na čisté databázi, C01 spike i sada C02 prošly</li>
-                  <li>Architektura sedí s kódem: Reservation Service je skutečně jediný owner změn stavu</li>
-                  <li>Detailní návrh odpovídá kódu, 20/20 jednotkových testů se smysluplnými očekávanými výsledky</li>
-                </ul>
+            <table className="t compact">
+              <thead>
+                <tr>
+                  <th style={{ width: '9%' }}>ID</th>
+                  <th style={{ width: '30%' }}>Ověření</th>
+                  <th style={{ width: '15%' }}>Decision</th>
+                  <th>Akce / closure</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="hl">
+                  <td className="mono">F1</td>
+                  <td>VERIFIED · na f200832 neexistuje docs/c04</td>
+                  <td>
+                    <Pill status="CONFIRMED">ACCEPT</Pill>
+                  </td>
+                  <td>docs/c04 v PR #15 · měření K = 10 OPEN</td>
+                </tr>
+                <tr>
+                  <td className="mono">F2</td>
+                  <td>REJECTED CANDIDATE · více commitů = historie checkpointů</td>
+                  <td>
+                    <Pill status="REJECTED">REJECT</Pill>
+                  </td>
+                  <td>no-change · assessed = f200832, nový reporting tag</td>
+                </tr>
+                <tr>
+                  <td className="mono">F3</td>
+                  <td>VERIFIED · team-approval.md nepodepsán, v0.2.1 v kódu</td>
+                  <td>
+                    <Pill status="CONFIRMED">ACCEPT</Pill>
+                  </td>
+                  <td>
+                    tým podepíše v0.1–v0.2.1 · <b>OPEN</b>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide notes="Nejdůležitější nález: tři NO z jediné příčiny. Postup ze zadání: claim, expected, observed, verify, disposition, closure. Closure je jen částečná: kritérium a rozhodnutí existují, měření pro K = 10 zatím ne — proto jej neoznačujeme jako vyřešený.">
+        <Frame title="F1 · Chybí C04 Quality & Measurement." section="A5 · C06">
+          <div className="body grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 36, alignContent: 'center' }}>
+            <div style={{ display: 'grid', gap: 22 }}>
+              {[
+                ['CLAIM', 'Projekt dodává řetězec quality concern → kritérium → měření → rozhodnutí (Q1–Q3).'],
+                ['EXPECTED', 'V docs/ dohledatelný C04 artefakt s měřením za deklarovaných podmínek.'],
+                ['OBSERVED', 'docs/ obsahuje C02, C03, C05; README C04 neodkazuje.'],
+                ['VERIFY', 'git ls-tree f200832 docs → 92 souborů, žádný c04. Reprodukováno.'],
+              ].map(([t, p]) => (
+                <div key={t} className="card" style={{ padding: '22px 30px' }}>
+                  <span className="tag" style={{ marginBottom: 8 }}>
+                    {t}
+                  </span>
+                  <p style={{ fontSize: 24, color: 'var(--ink-2)' }}>{p}</p>
+                </div>
+              ))}
+            </div>
+            <Fragment className="card" style={{ borderColor: 'var(--pending)', borderWidth: 3, display: 'grid', gap: 22, alignContent: 'start' }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="tag" style={{ margin: 0 }}>
+                  DISPOSITION
+                </span>
+                <Pill status="CONFIRMED">VERIFIED · ACCEPT</Pill>
               </div>
               <div>
-                <span className="tag" style={{ color: 'var(--rejected)' }}>CO VYTKLI</span>
-                <ul className="clean small red">
-                  <li>Chybí artefakt C04: kritérium kvality, měření ani rozhodnutí (F1)</li>
-                  <li>Dokumentace neuvádí jednu hodnocenou baseline (F2)</li>
-                  <li>Baseline v0.1 až v0.2.1 nejsou schválené, v0.2.1 přesto běží v kódu (F3)</li>
+                <span className="tag">CLOSURE EVIDENCE</span>
+                <ul className="clean small">
+                  <li>
+                    Q1 kritérium: QC-01 … QC-04 v <code>docs/c04/quality-and-measurement.md</code>
+                  </li>
+                  <li>Q3 rozhodnutí: ponechat ADR-001 + podmínky přehodnocení</li>
                 </ul>
+                <ul className="clean small red" style={{ marginTop: 18 }}>
+                  <li>Q2 měření: jen K = 2, K = 10 / BR-04 / DB invariant chybí</li>
+                </ul>
+              </div>
+              <div className="row" style={{ gap: 12 }}>
+                <Pill status="PENDING_APPROVAL">ČÁSTEČNĚ UZAVŘENO</Pill>
+                <span className="muted" style={{ fontSize: 21 }}>
+                  owner <Todo />
+                </span>
+              </div>
+            </Fragment>
+          </div>
+        </Frame>
+      </Slide>
+
+      {/* ---------------------------------------------------------- */}
+      {/* C · Project Status Report                                  */}
+      {/* ---------------------------------------------------------- */}
+
+      <Slide notes="Část C, 5–7 minut. Stejný projekt, stejná reporting baseline jako část A, ale pohled řízení: stav, termíny, rizika, rozhodnutí.">
+        <Frame dark section="Project Status">
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span className="tag" style={{ color: '#34d399' }}>
+              ČÁST C · PROJECT STATUS REPORT
+            </span>
+            <h1 style={{ fontSize: 112, maxWidth: 1500 }}>Skutečný stav, ne seznam aktivit.</h1>
+            <p className="lede mono" style={{ fontSize: 26 }}>
+              reporting baseline · {REPORTING_BASELINE}
+            </p>
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide notes="01 Executive Status. AMBER: produkt je funkčně hotový a ověřený, mezery jsou v evidenci a governance — nedokončené měření C04 a nepodepsaná specifikace. Rozhodnutí dnes: tým schválí baseline v0.2.1.">
+        <Frame title="01 · Executive Status" section="Project Status">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '0.75fr 1.25fr', gap: 56, alignItems: 'center' }}>
+            <div className="card" style={{ borderColor: 'var(--pending)', borderWidth: 4, textAlign: 'center', padding: '56px 36px' }}>
+              <span className="tag">CELKOVÝ STAV</span>
+              <div className="big-num" style={{ color: '#b45309' }}>
+                AMBER
+              </div>
+              <h3 style={{ marginTop: 18 }}>AT RISK</h3>
+              <p className="mono" style={{ fontSize: 19, marginTop: 24 }}>
+                {TEAM}
+              </p>
+            </div>
+            <div style={{ display: 'grid', gap: 26 }}>
+              <div className="card">
+                <span className="tag">HLAVNÍ ZÁVĚR</span>
+                <p style={{ color: 'var(--ink-2)' }}>
+                  Všech pět operací je implementováno a ověřeno testy. Riziko není ve funkcích, ale v evidenci: C04 měření souběhu je jen pro K = 2 a specifikace v0.1–v0.2.1 není schválená
+                  týmem.
+                </p>
+              </div>
+              <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
+                <span className="tag" style={{ color: 'var(--confirmed)' }}>
+                  POTŘEBNÉ ROZHODNUTÍ
+                </span>
+                <p style={{ color: 'var(--ink-2)' }}>Schválit baseline v0.2.1 (BR-06, offset, limit poznámky) jako přijatou specifikaci. Podklad: code review 2026-10-19, C06 F3.</p>
               </div>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      {REVIEW_FINDINGS.map((finding) => (
-        <Slide key={finding.id} notes={finding.notes}>
-          <Frame title={`${finding.id} · ${finding.title}`} section="Review">
-            <div className="body grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 40, alignContent: 'center' }}>
-              <div style={{ display: 'grid', gap: 28 }}>
-                <div className="card">
-                  <span className="tag">CO NAŠLI</span>
-                  <p style={{ color: 'var(--ink-2)' }}>{finding.found}</p>
-                </div>
-                <div className="card">
-                  <span className="tag">DOPORUČENÁ AKCE</span>
-                  <p style={{ color: 'var(--ink-2)' }}>{finding.recommended}</p>
-                </div>
-              </div>
-              <Fragment
-                className="card"
-                style={{
-                  borderWidth: 3,
-                  borderColor: finding.decision === 'ACCEPTED' ? 'var(--confirmed)' : 'var(--rejected)',
-                  display: 'grid',
-                  gap: 22,
-                  alignContent: 'start',
-                }}
-              >
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="tag" style={{ margin: 0 }}>NAŠE ROZHODNUTÍ</span>
-                  <Pill status={finding.decision === 'ACCEPTED' ? 'CONFIRMED' : 'REJECTED'}>{finding.decision}</Pill>
-                </div>
-                <p style={{ color: 'var(--ink)', fontSize: 27 }}>{finding.reason}</p>
-                <div>
-                  <span className="tag">{finding.decision === 'ACCEPTED' ? 'CO UDĚLÁME' : 'BEZE ZMĚNY'}</span>
-                  <p style={{ color: 'var(--ink-2)' }}>{finding.action}</p>
-                </div>
-              </Fragment>
-            </div>
-          </Frame>
-        </Slide>
-      ))}
+      <Slide notes="02 Scope & Delivery. Specified je všude PARTLY, protože team-approval.md není podepsaný (F3) — chování je specifikované, ale ne formálně přijaté. Verified je PARTLY u business rules a C04: BR-04 pod souběhem a K = 10 nejsou změřené. Testy běžely 2026-10-19, na reporting tagu je zopakujeme.">
+        <Frame title="02 · Scope & Delivery" section="Project Status">
+          <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 22 }}>
+            <table className="t compact">
+              <thead>
+                <tr>
+                  <th style={{ width: '26%' }}>Položka</th>
+                  <th>Specified</th>
+                  <th>Designed</th>
+                  <th>Implemented</th>
+                  <th>Verified</th>
+                  <th style={{ width: '27%' }}>Důkaz / mezera</th>
+                </tr>
+              </thead>
+              <tbody>
+                {DELIVERY.map(([item, s, d, i, v, note]) => (
+                  <tr key={item}>
+                    <td style={{ fontWeight: 600 }}>{item}</td>
+                    <td>
+                      <V v={s} />
+                    </td>
+                    <td>
+                      <V v={d} />
+                    </td>
+                    <td>
+                      <V v={i} />
+                    </td>
+                    <td>
+                      <V v={v} />
+                    </td>
+                    <td className="muted">{note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="muted" style={{ fontSize: 21 }}>
+              Specified = PARTLY: chování je ve specifikaci v0.2.1, ale <code>docs/team-approval.md</code> není podepsán (F3). Verified = poslední běh 2026-10-19.
+            </p>
+          </div>
+        </Frame>
+      </Slide>
 
-      <Slide notes="Zakončete produktem: skutečná aplikace, kterou si uživatel otevře — katalog agentů, veřejný Ganttův diagram a vlastní rezervace na jedné obrazovce.">
-        <Frame dark>
-          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '0.85fr 1.15fr', gap: 80, alignItems: 'center' }}>
-            <div>
-              <div className="row" style={{ marginBottom: 36 }}>
-                <BrandMark />
+      <Slide notes="03 Schedule & Resources. Plán vs. skutečnost: C04 měl vzniknout v checkpointu C04, dodán až po C06 — to je skutečné zpoždění. Vlastníci a termíny zbývajících balíků zatím nejsou přidělené; přiznáváme planning gap místo vymýšlení dat.">
+        <Frame title="03 · Schedule & Resources" section="Project Status">
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.7fr', gap: 48, alignItems: 'center' }}>
+            <table className="t compact">
+              <thead>
+                <tr>
+                  <th style={{ width: '38%' }}>Work package</th>
+                  <th>Plán</th>
+                  <th>Skutečnost / forecast</th>
+                  <th>Owner</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>C04 Quality & Measurement</td>
+                  <td>checkpoint C04</td>
+                  <td>
+                    <span className="em-red">dodáno 2026-11-02 (PR #15), po C06</span>
+                  </td>
+                  <td>
+                    <Todo />
+                  </td>
+                </tr>
+                <tr className="hl">
+                  <td>Měření QC-01 (K = 10), QC-03, QC-04 · kritické</td>
+                  <td>
+                    <Todo />
+                  </td>
+                  <td>nezačato</td>
+                  <td>
+                    <Todo />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Schválení v0.1 – v0.2.1</td>
+                  <td>
+                    <Todo />
+                  </td>
+                  <td>nezačato</td>
+                  <td>celý tým</td>
+                </tr>
+                <tr>
+                  <td>Reporting tag + běh všech checks</td>
+                  <td>před obhajobou</td>
+                  <td>čeká na merge PR #15</td>
+                  <td>
+                    <Todo />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Risk register (část B) v evidence</td>
+                  <td>před C08</td>
+                  <td>rizika R-01…R-03 v tomto reportu</td>
+                  <td>
+                    <Todo />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ display: 'grid', gap: 24 }}>
+              <div className="card">
+                <span className="tag">KRITICKÁ ZÁVISLOST</span>
+                <p>Měření QC čeká na merge PR #15; reporting tag čeká na obojí.</p>
               </div>
-              <h1 style={{ fontSize: 100 }}>Rezervujte agenta, ne hádku.</h1>
-              <p className="lede" style={{ fontSize: 34 }}>
-                Předvídatelné pro uživatele, ovladatelné pro administrátory, prokazatelné pro inženýry.
+              <div className="card" style={{ borderColor: 'var(--rejected)', borderWidth: 3 }}>
+                <span className="tag" style={{ color: 'var(--rejected)' }}>
+                  PLANNING GAP
+                </span>
+                <p>Owner a termíny zbývajících balíků nejsou přidělené. Tým je doplní na nejbližší schůzce.</p>
+              </div>
+            </div>
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide notes="04 Top Risks & Issues. Tři rizika z části B se skóre L × I před ošetřením. Actual residual je NOT VERIFIED všude, kde opatření ještě neproběhlo. Issues jsou oddělené: věci, které už nastaly.">
+        <Frame title="04 · Top Risks & Issues" section="Project Status">
+          <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 26 }}>
+            <table className="t compact risk">
+              <thead>
+                <tr>
+                  <th style={{ width: '7%' }}>ID</th>
+                  <th style={{ width: '33%' }}>Příčina → událost → důsledek</th>
+                  <th style={{ width: '13%' }}>Initial</th>
+                  <th style={{ width: '18%' }}>Response</th>
+                  <th style={{ width: '13%' }}>Expected / actual</th>
+                  <th>Trigger</th>
+                </tr>
+              </thead>
+              <tbody>
+                {RISKS.map((r) => (
+                  <tr key={r.id}>
+                    <td className="mono" style={{ fontWeight: 600 }}>
+                      {r.id}
+                      <div className="muted" style={{ fontSize: 15, fontWeight: 400 }}>
+                        {r.category}
+                      </div>
+                    </td>
+                    <td>{r.statement}</td>
+                    <td>
+                      <Pill status={r.priority}>{r.initial}</Pill>
+                    </td>
+                    <td>{r.response}</td>
+                    <td className="mono">
+                      {r.expected}
+                      <div className={r.actual === 'NOT VERIFIED' ? 'em-red' : 'muted'} style={{ fontWeight: 600 }}>
+                        {r.actual}
+                      </div>
+                    </td>
+                    <td className="muted">{r.trigger}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="card" style={{ padding: '22px 30px' }}>
+              <span className="tag" style={{ marginBottom: 8 }}>
+                ISSUES (UŽ NASTALO)
+              </span>
+              <p style={{ fontSize: 23 }}>
+                <b style={{ color: 'var(--ink)' }}>I-1</b> specifikace v0.1–v0.2.1 nepodepsána, v0.2.1 přesto v kódu (F3) · <b style={{ color: 'var(--ink)' }}>I-2</b> C04 dodáno až po C06,
+                měření Q2 neúplné (F1)
               </p>
             </div>
-            <Browser
-              src={asset('screenshots/home-user.png')}
-              alt="Aplikace Agent Reservations — pohled přihlášeného uživatele"
-              crop={{ x: 0.1, w: 0.8 }}
-              style={{ height: 720, border: 0 }}
-            />
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide notes="05 Next Action Plan. Čtyři nejdůležitější akce, každá s Definition of Done ověřitelným v repozitáři a vazbou na nález nebo riziko. Owner a termín doplní tým — viz planning gap.">
+        <Frame title="05 · Next Action Plan" section="Project Status">
+          <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
+            <table className="t">
+              <thead>
+                <tr>
+                  <th style={{ width: '4%' }}>#</th>
+                  <th style={{ width: '36%' }}>Akce</th>
+                  <th style={{ width: '11%' }}>Owner</th>
+                  <th style={{ width: '10%' }}>Due</th>
+                  <th>Definition of Done</th>
+                  <th style={{ width: '11%' }}>Vazba</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ACTIONS.map(([action, dod, link], i) => (
+                  <tr key={action}>
+                    <td className="mono">{i + 1}</td>
+                    <td>{action}</td>
+                    <td>
+                      <Todo />
+                    </td>
+                    <td>
+                      <Todo />
+                    </td>
+                    <td className="muted">{dod}</td>
+                    <td className="mono">{link}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Frame>
+      </Slide>
+
+      <Slide notes="06 Decision & Outlook. Co je prokazatelně hotové a co ne. Největší omezení: evidence pochází z 2026-10-19, ne z reporting baseline. Forecast: GREEN po dokončení akcí 1–4, pokud měření projdou.">
+        <Frame title="06 · Decision & Outlook" section="Project Status">
+          <div className="body grid cols-2" style={{ gap: 40, alignContent: 'center' }}>
+            <div className="card">
+              <span className="tag" style={{ color: 'var(--confirmed)' }}>
+                PROKAZATELNĚ HOTOVO
+              </span>
+              <ul className="clean small">
+                <li>OP-01 – OP-05 implementováno, test:c02 31/31, test:c05 20/20</li>
+                <li>Architektura a DD odpovídají kódu (C06: A1–A4, D1–D5 YES)</li>
+                <li>C04 kritérium a rozhodnutí zapsány (PR #15)</li>
+              </ul>
+            </div>
+            <div className="card">
+              <span className="tag" style={{ color: 'var(--rejected)' }}>
+                NENÍ HOTOVO
+              </span>
+              <ul className="clean small red">
+                <li>Měření QC-01 (K = 10), QC-03, QC-04</li>
+                <li>Schválení specifikace v0.1 – v0.2.1</li>
+                <li>Reporting tag a běh checks na něm</li>
+              </ul>
+            </div>
+            <div className="card">
+              <span className="tag">NEJVĚTŠÍ OMEZENÍ</span>
+              <p>Evidence je z běhu 2026-10-19, ne z reporting baseline. Owner a termíny akcí nejsou přidělené.</p>
+            </div>
+            <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
+              <span className="tag" style={{ color: 'var(--confirmed)' }}>
+                FORECAST · ROZHODNUTÍ
+              </span>
+              <p style={{ color: 'var(--ink-2)' }}>GREEN po akcích 1–4, pokud QC měření projdou. Rozhodnutí dnes: schválit v0.2.1 a přidělit ownery akcí.</p>
+            </div>
           </div>
         </Frame>
       </Slide>

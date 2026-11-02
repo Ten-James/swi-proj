@@ -379,3 +379,24 @@ ul.clean li::before {
 ul.clean.red li::before { background: var(--rejected); }
 ul.clean.small li { font-size: 23px; }
 ul.clean.small li::before { top: 13px; }
+
+/* ---------- Dense tables (status report, DD → test) ---------- */
+
+table.t.compact { font-size: 22px; }
+table.t.compact th { font-size: 15px; padding-bottom: 12px; }
+table.t.compact td { padding: 13px 16px 13px 0; }
+table.t.compact td.mono { font-size: 19px; }
+table.t.compact .pill { font-size: 15px; padding: 5px 12px; }
+table.t.risk td { font-size: 20px; }
+
+/* Data the team still has to supply (owner, due date). */
+.todo {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--rejected);
+  border: 2px dashed var(--rejected);
+  border-radius: 8px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
