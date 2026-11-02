@@ -7,7 +7,7 @@ import { ArchitectureDiagram, IntervalDiagram, OwnershipDiagram, SequenceDiagram
 
 /* Both parts (A and C) must report against the same commit/tag. Update both lines when the tag exists. */
 const ASSESSED_BASELINE = 'f200832'
-const REPORTING_BASELINE = 'tag doplnit · obsahuje C04 5bc56b0'
+const REPORTING_BASELINE = 'měřeno na 046bc8c · tag po merge do main'
 const TEAM = 'swi-proj · IND0040, PRO0458, KOL0603, MER0126'
 
 /* Faithful excerpts of src/lib/reservation-policy.ts (messages shortened). */
@@ -43,11 +43,6 @@ function V({ v }: { v: Verdict }) {
   return <Pill status={VERDICT_PILL[v]}>{v}</Pill>
 }
 
-/** Placeholder for data the team has to supply; never invent owners or dates. */
-function Todo({ children = 'doplnit' }: { children?: string }) {
-  return <span className="todo">{children}</span>
-}
-
 /* docs/review.md: C06 assessment by team Parking reservation system, 2026-10-24. */
 const REVIEW_SCORECARD: [string, [string, Verdict][]][] = [
   ['Baseline', [['B1', 'PARTLY'], ['B2', 'YES']]],
@@ -59,12 +54,12 @@ const REVIEW_SCORECARD: [string, [string, Verdict][]][] = [
 
 /* Slide C·02: Specified / Designed / Implemented / Verified with the evidence or the gap. */
 const DELIVERY: [string, Verdict, Verdict, Verdict, Verdict, string][] = [
-  ['OP-01 Create', 'PARTLY', 'YES', 'YES', 'YES', 'C05 DD · test:c02 OP-01'],
-  ['OP-02 Availability', 'PARTLY', 'YES', 'YES', 'YES', 'test:c02 half-open hranice'],
-  ['OP-03/05 Confirm · Approval', 'PARTLY', 'YES', 'YES', 'YES', 'C05 §6 · test:c02 OP-05, REQ-10'],
-  ['OP-04 Cancel', 'PARTLY', 'YES', 'YES', 'YES', 'planCancel · test:c05 + test:c02'],
-  ['Business rules BR-01…06', 'PARTLY', 'YES', 'YES', 'PARTLY', 'BR-04 pod souběhem neověřeno'],
-  ['C04 · integrita pod souběhem', 'YES', 'YES', 'YES', 'PARTLY', 'měřeno jen K = 2 (QC-01/02)'],
+  ['OP-01 Create', 'YES', 'YES', 'YES', 'YES', 'C05 DD · test:c02 OP-01'],
+  ['OP-02 Availability', 'YES', 'YES', 'YES', 'YES', 'test:c02 half-open hranice'],
+  ['OP-03/05 Confirm · Approval', 'YES', 'YES', 'YES', 'YES', 'C05 §6 · test:c02 OP-05, REQ-10'],
+  ['OP-04 Cancel', 'YES', 'YES', 'YES', 'YES', 'planCancel · test:c05 + test:c02'],
+  ['Business rules BR-01…06', 'YES', 'YES', 'YES', 'YES', 'test:c05 · BR-04 pod souběhem QC-03'],
+  ['C04 · integrita pod souběhem', 'YES', 'YES', 'YES', 'YES', 'QC-01…04 PASS, K = 10 × 5'],
 ]
 
 const RISKS: {
@@ -81,12 +76,12 @@ const RISKS: {
   {
     id: 'R-01',
     category: 'Technical / Quality',
-    statement: 'BR-02 a BR-04 drží jen díky serializaci SQLite; změřeno pouze K = 2 → double booking při vyšším souběhu by zůstal neodhalen',
+    statement: 'BR-02 a BR-04 drží jen díky serializaci SQLite → chyba pod vyšším souběhem by zůstala neodhalena → double booking',
     initial: 'L2 × I3 = HIGH 6',
     priority: 'REJECTED',
-    response: 'MITIGATE · QC-01 (K = 10), QC-03, QC-04 v test:c02 (7490c25)',
+    response: 'MITIGATE · QC-01 (K = 10 × 5), QC-03, QC-04 v test:c02 a CI',
     expected: 'L1 × I3 = MEDIUM 3',
-    actual: 'NOT VERIFIED',
+    actual: 'MEDIUM 3 · ověřeno 2026-11-02',
     trigger: 'kterékoli QC = FAIL · více procesů / jiná DB',
   },
   {
@@ -113,11 +108,12 @@ const RISKS: {
   },
 ]
 
-const ACTIONS: [string, string, string][] = [
-  ['Spustit test:c02 s měřením QC-01 (K = 10, R = 5), QC-03, QC-04', 'PASS log v evidence, C04 §4 vyplněno', 'F1 · R-01'],
-  ['Schválit baseline v0.1 – v0.2.1', 'jména + datum v team-approval.md', 'F3 · I-1'],
-  ['Vytvořit reporting tag a spustit všechny checks na něm', 'tag + tabulka výsledků v evidence', 'F2 · R-02'],
-  ['Zapsat risk register (část B) do evidence', '≥ 4 rizika z ≥ 3 kategorií v evidence-and-evolution.md', 'B'],
+/* Slide C·05: action, owner, due, Definition of Done, related finding/risk. */
+const ACTIONS: [string, string, string, string, string][] = [
+  ['Merge c07-c08-presentation do main', 'IND0040', 'před C08', 'main obsahuje C04, QC testy a schválení', 'F1 · F3'],
+  ['Vytvořit reporting tag a spustit všechny checks na něm', 'IND0040', 'před C08', 'tag + tabulka výsledků v evidence', 'F2 · R-02'],
+  ['Zapsat risk register (část B) do evidence', 'KOL0603', 'před C08', '≥ 4 rizika z ≥ 3 kategorií v evidence-and-evolution.md', 'B'],
+  ['Zapsat disposition C06 F1–F3 do evidence', 'KOL0603', 'před C08', 'claim, verify, decision, closure pro F1–F3', 'F1–F3'],
 ]
 
 export default function TechnicalDesignReview() {
@@ -168,7 +164,7 @@ export default function TechnicalDesignReview() {
               ['2 · ARCHITECTURE', 'Jeden vlastník', 'Reservation Service drží rozhodnutí i transakci. ADR-001.'],
               ['3 · DETAILED DESIGN', 'Čistá policy', 'planDecision + assertCanConfirm, větve a failure kódy.'],
               ['4 · EVIDENCE', 'Test + C04', 'Pozitivní, hraniční a souběžný případ. Kritérium QC-01.'],
-              ['5 · C06', 'Nález F1', 'Chybělo C04. Ověřeno, přijato, uzavřeno jen částečně.'],
+              ['5 · C06', 'Nález F1', 'Chybělo C04. Ověřeno, přijato, uzavřeno měřením.'],
             ].map(([tag, h, p], i) => (
               <Fragment key={tag} step={i + 1} className="card">
                 <span className="tag" style={{ color: 'var(--confirmed)' }}>
@@ -491,7 +487,7 @@ export default function TechnicalDesignReview() {
 
       {/* ---------- 4 · Verification & Evidence ---------- */}
 
-      <Slide notes="Tři případy ze skutečného běhu test:c02 dne 2026-10-19 na čisté SQLite proti next build + next start, dvakrát po sobě. Oracle je přesný HTTP status a stav. Na reporting baseline je potřeba běh zopakovat — to je akce 4 v části C.">
+      <Slide notes="Tři případy ze skutečného běhu test:c02 dne 2026-11-02 na commitu 046bc8c, čistá SQLite, next build + next start. Oracle je přesný HTTP status a stav. Ostatní kontroly jsou z běhu 2026-10-19; doménový kód (src/lib) se od té doby nezměnil, všechny checks zopakujeme na reporting tagu.">
         <Frame title="Expected vs. observed." section="A4 · Evidence">
           <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 32 }}>
             <table className="t compact">
@@ -535,19 +531,19 @@ export default function TechnicalDesignReview() {
               </tbody>
             </table>
             <div className="row" style={{ flexWrap: 'wrap', gap: 14 }}>
+              <Pill status="CONFIRMED">test:c02 · 34/34 · 2026-11-02</Pill>
               <Pill status="CONFIRMED">test:c05 · 20/20</Pill>
-              <Pill status="CONFIRMED">test:c02 · 31/31</Pill>
               <Pill status="CONFIRMED">test:architecture · PASS</Pill>
               <Pill status="CONFIRMED">lint · typecheck · build · PASS</Pill>
               <span className="muted" style={{ fontSize: 21 }}>
-                běh 2026-10-19, čistá SQLite, <code>next build</code> + <code>next start</code>
+                <code>046bc8c</code>, čistá SQLite, <code>next build</code> + <code>next start</code> · ostatní 2026-10-19
               </span>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="C04: concern je integrita pod souběhem. Kritérium je PASS/FAIL, jedno porušení = FAIL. Měřeno zatím jen K = 2 — dvojice požadavků může doběhnout náhodně sekvenčně, takže tvrzení o souběhu obecně je PARTLY. Rozhodnutí: ponechat ADR-001, rozšířit měření.">
+      <Slide notes="C04: concern je integrita pod souběhem. Kritérium je PASS/FAIL, jedno porušení = FAIL. Měřeno 2026-11-02: 10 souběžných požadavků v pěti opakováních, Create i limit BR-04, plus kontrola celé DB. Vše PASS, proto ponecháváme ADR-001 beze změny kódu.">
         <Frame title="C04: co znamená quality criterion." section="A4 · Evidence">
           <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 48, alignItems: 'center' }}>
             <table className="t compact">
@@ -555,15 +551,15 @@ export default function TechnicalDesignReview() {
                 <tr>
                   <th style={{ width: '12%' }}>ID</th>
                   <th>Criterion (oracle)</th>
-                  <th style={{ width: '10%' }}>K</th>
+                  <th style={{ width: '12%' }}>K × R</th>
                   <th style={{ width: '16%' }}>Výsledek</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td className="mono">QC-01</td>
-                  <td>K souběžných Create na stejný interval → právě 1× 201, K−1× 409, 0× 5xx</td>
-                  <td className="mono">2</td>
+                  <td>10 souběžných Create na stejný interval → právě 1× 201, 9× 409, 0× 5xx</td>
+                  <td className="mono">10 × 5</td>
                   <td>
                     <Pill status="CONFIRMED">PASS</Pill>
                   </td>
@@ -577,27 +573,19 @@ export default function TechnicalDesignReview() {
                   </td>
                 </tr>
                 <tr>
-                  <td className="mono">QC-01</td>
-                  <td>totéž pro K = 10, R = 5 opakování</td>
-                  <td className="mono">10</td>
-                  <td>
-                    <Pill status="PENDING_APPROVAL">OPEN</Pill>
-                  </td>
-                </tr>
-                <tr>
                   <td className="mono">QC-03</td>
-                  <td>souběžné Create proti limitu BR-04 → nejvýše 1× 201</td>
-                  <td className="mono">10</td>
+                  <td>10 souběžných Create proti limitu BR-04 → právě 1× 201, 9× 403</td>
+                  <td className="mono">10 × 5</td>
                   <td>
-                    <Pill status="PENDING_APPROVAL">OPEN</Pill>
+                    <Pill status="CONFIRMED">PASS</Pill>
                   </td>
                 </tr>
                 <tr>
                   <td className="mono">QC-04</td>
-                  <td>v DB 0 dvojic překrývajících se CONFIRMED</td>
+                  <td>v celé DB 0 dvojic překrývajících se CONFIRMED</td>
                   <td className="mono">–</td>
                   <td>
-                    <Pill status="PENDING_APPROVAL">OPEN</Pill>
+                    <Pill status="CONFIRMED">PASS</Pill>
                   </td>
                 </tr>
               </tbody>
@@ -606,15 +594,15 @@ export default function TechnicalDesignReview() {
               <div className="card">
                 <span className="tag">PODMÍNKY MĚŘENÍ</span>
                 <p>
-                  <code>next build</code> + <code>next start</code>, jeden proces, čistá SQLite, <code>Promise.all</code> nad <code>fetch</code>.
+                  2026-11-02 na <code>046bc8c</code>: <code>next build</code> + <code>next start</code>, jeden proces, čistá SQLite, <code>Promise.all</code> nad <code>fetch</code>.
                 </p>
               </div>
-              <div className="card" style={{ borderColor: 'var(--pending)', borderWidth: 3 }}>
+              <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
                 <span className="tag">ROZHODNUTÍ</span>
-                <p style={{ color: 'var(--ink-2)' }}>Ponechat ADR-001 beze změny kódu. Rozšířit měření; při kterémkoli FAIL přejít na DB constraint nebo retry.</p>
+                <p style={{ color: 'var(--ink-2)' }}>Ponechat ADR-001 beze změny kódu. Při kterémkoli FAIL nebo více procesech přejít na DB constraint nebo retry.</p>
               </div>
               <p className="mono muted" style={{ fontSize: 18 }}>
-                docs/c04/quality-and-measurement.md · 5bc56b0
+                docs/c04/quality-and-measurement.md §4
               </p>
             </div>
           </div>
@@ -676,7 +664,7 @@ export default function TechnicalDesignReview() {
                     <Pill status="CONFIRMED">ACCEPT</Pill>
                   </td>
                   <td>
-                    tým podepíše v0.1–v0.2.1 · <b>OPEN</b>
+                    team-approval.md podepsán (1e406c6) · <b>UZAVŘENO</b>
                   </td>
                 </tr>
               </tbody>
@@ -685,7 +673,7 @@ export default function TechnicalDesignReview() {
         </Frame>
       </Slide>
 
-      <Slide notes="Nejdůležitější nález: tři NO z jediné příčiny. Postup ze zadání: claim, expected, observed, verify, disposition, closure. Nález je uzavřen: docs/c04 obsahuje celý řetězec concern, kritérium, měření za deklarovaných podmínek a rozhodnutí. Rozšíření měření na K = 10 a BR-04 je nová práce, kterou sledujeme jako riziko R-01 a akci 2, ne jako otevřený F1.">
+      <Slide notes="Nejdůležitější nález: tři NO z jediné příčiny. Postup ze zadání: claim, expected, observed, verify, disposition, closure. Nález je uzavřen: docs/c04 obsahuje celý řetězec concern, kritérium, měření za deklarovaných podmínek a rozhodnutí. Měření proběhlo 2026-11-02 (10 souběžných požadavků × 5) a je součástí test:c02, takže ho CI hlídá při každé změně.">
         <Frame title="F1 · Chybí C04 Quality & Measurement." section="A5 · C06">
           <div className="body grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 36, alignContent: 'center' }}>
             <div style={{ display: 'grid', gap: 22 }}>
@@ -717,13 +705,13 @@ export default function TechnicalDesignReview() {
                     commit <code>5bc56b0</code> · <code>docs/c04/quality-and-measurement.md</code>
                   </li>
                   <li>Q1 kritérium: QC-01 … QC-04 s PASS/FAIL oracle</li>
-                  <li>Q2 měření: protokol + podmínky, QC-01/QC-02 PASS (K = 2)</li>
+                  <li>Q2 měření: 2026-11-02, test:c02 34/34, QC-01…04 PASS (K = 10 × 5)</li>
                   <li>Q3 rozhodnutí: ponechat ADR-001 + podmínky přehodnocení</li>
                 </ul>
               </div>
               <div>
-                <span className="tag">NAVAZUJÍCÍ PRÁCE</span>
-                <p>Měření K = 10, BR-04 a DB invariant sleduje riziko R-01 a akce 2 v části C.</p>
+                <span className="tag">REGRESE</span>
+                <p>Měření je součástí test:c02, CI ho spouští při každé změně.</p>
               </div>
               <div>
                 <Pill status="CONFIRMED">UZAVŘENO</Pill>
@@ -751,15 +739,13 @@ export default function TechnicalDesignReview() {
         </Frame>
       </Slide>
 
-      <Slide notes="01 Executive Status. AMBER: produkt je funkčně hotový a ověřený, mezery jsou v evidenci a governance — nedokončené měření C04 a nepodepsaná specifikace. Rozhodnutí dnes: tým schválí baseline v0.2.1.">
+      <Slide notes="01 Executive Status. GREEN: všech pět operací je implementováno a ověřeno, C04 měření souběhu prošlo pro K = 10 a specifikace v0.1–v0.2.1 je schválená. Zbývá merge, reporting tag a zápis části B — žádná z těchto akcí neblokuje rozsah ani termín.">
         <Frame title="01 · Executive Status" section="Project Status">
           <div className="body" style={{ display: 'grid', gridTemplateColumns: '0.75fr 1.25fr', gap: 56, alignItems: 'center' }}>
-            <div className="card" style={{ borderColor: 'var(--pending)', borderWidth: 4, textAlign: 'center', padding: '56px 36px' }}>
+            <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 4, textAlign: 'center', padding: '56px 36px' }}>
               <span className="tag">CELKOVÝ STAV</span>
-              <div className="big-num" style={{ color: '#b45309' }}>
-                AMBER
-              </div>
-              <h3 style={{ marginTop: 18 }}>AT RISK</h3>
+              <div className="big-num em-green">GREEN</div>
+              <h3 style={{ marginTop: 18 }}>ON TRACK</h3>
               <p className="mono" style={{ fontSize: 19, marginTop: 24 }}>
                 {TEAM}
               </p>
@@ -768,22 +754,22 @@ export default function TechnicalDesignReview() {
               <div className="card">
                 <span className="tag">HLAVNÍ ZÁVĚR</span>
                 <p style={{ color: 'var(--ink-2)' }}>
-                  Všech pět operací je implementováno a ověřeno testy. Riziko není ve funkcích, ale v evidenci: C04 měření souběhu je jen pro K = 2 a specifikace v0.1–v0.2.1 není schválená
-                  týmem.
+                  Všech pět operací je implementováno a ověřeno (test:c02 34/34, 2026-11-02). C04 měření souběhu prošlo pro 10 požadavků × 5 opakování a specifikace v0.1–v0.2.1 je
+                  schválená.
                 </p>
               </div>
               <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
                 <span className="tag" style={{ color: 'var(--confirmed)' }}>
                   POTŘEBNÉ ROZHODNUTÍ
                 </span>
-                <p style={{ color: 'var(--ink-2)' }}>Schválit baseline v0.2.1 (BR-06, offset, limit poznámky) jako přijatou specifikaci. Podklad: code review 2026-10-19, C06 F3.</p>
+                <p style={{ color: 'var(--ink-2)' }}>Potvrdit merge do main a reporting tag jako baseline pro obhajobu CP1. Podklad: C04 §4, team-approval.md, C06 F1–F3.</p>
               </div>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="02 Scope & Delivery. Specified je všude PARTLY, protože team-approval.md není podepsaný (F3) — chování je specifikované, ale ne formálně přijaté. Verified je PARTLY u business rules a C04: BR-04 pod souběhem a K = 10 nejsou změřené. Testy běžely 2026-10-19, na reporting tagu je zopakujeme.">
+      <Slide notes="02 Scope & Delivery. Specified YES: baseline v0.1–v0.2.1 jsou schválené v team-approval.md. Verified YES: test:c02 34/34 dne 2026-11-02 včetně BR-04 pod souběhem (QC-03) a C04 měření; unit testy test:c05 z 2026-10-19, doménový kód se od té doby nezměnil.">
         <Frame title="02 · Scope & Delivery" section="Project Status">
           <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 22 }}>
             <table className="t compact">
@@ -794,7 +780,7 @@ export default function TechnicalDesignReview() {
                   <th>Designed</th>
                   <th>Implemented</th>
                   <th>Verified</th>
-                  <th style={{ width: '27%' }}>Důkaz / mezera</th>
+                  <th style={{ width: '27%' }}>Důkaz</th>
                 </tr>
               </thead>
               <tbody>
@@ -819,19 +805,19 @@ export default function TechnicalDesignReview() {
               </tbody>
             </table>
             <p className="muted" style={{ fontSize: 21 }}>
-              Specified = PARTLY: chování je ve specifikaci v0.2.1, ale <code>docs/team-approval.md</code> není podepsán (F3). Verified = poslední běh 2026-10-19.
+              Specified: <code>docs/team-approval.md</code> (v0.1–v0.2.1). Verified: <code>test:c02</code> 34/34 na <code>046bc8c</code> (2026-11-02), <code>test:c05</code> 20/20 (2026-10-19).
             </p>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="03 Schedule & Resources. Plán vs. skutečnost: C04 měl vzniknout v checkpointu C04, dodán až po C06 — to je skutečné zpoždění. Vlastníci a termíny zbývajících balíků zatím nejsou přidělené; přiznáváme planning gap místo vymýšlení dat.">
+      <Slide notes="03 Schedule & Resources. Plán vs. skutečnost: C04 měl vzniknout v checkpointu C04, dodán až po C06 — to je skutečné zpoždění, dnes dohnané včetně měření. Schválení baseline bylo zapsáno zpětně s daty jejich commitů. Zbývající balíky dělí IND0040 a KOL0603, termín je C08.">
         <Frame title="03 · Schedule & Resources" section="Project Status">
           <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.7fr', gap: 48, alignItems: 'center' }}>
             <table className="t compact">
               <thead>
                 <tr>
-                  <th style={{ width: '38%' }}>Work package</th>
+                  <th style={{ width: '36%' }}>Work package</th>
                   <th>Plán</th>
                   <th>Skutečnost / forecast</th>
                   <th>Owner</th>
@@ -842,65 +828,51 @@ export default function TechnicalDesignReview() {
                   <td>C04 Quality & Measurement</td>
                   <td>checkpoint C04</td>
                   <td>
-                    <span className="em-red">dodáno 2026-11-02 (5bc56b0), po C06</span>
+                    <span className="em-red">dodáno 2026-11-02, po C06</span>
                   </td>
-                  <td>
-                    <Todo />
-                  </td>
+                  <td className="mono">IND0040</td>
                 </tr>
-                <tr className="hl">
-                  <td>Běh měření QC-01 (K = 10), QC-03, QC-04 · kritické</td>
-                  <td>
-                    <Todo />
-                  </td>
-                  <td>testy napsané (7490c25), čeká na běh</td>
-                  <td>
-                    <Todo />
-                  </td>
+                <tr>
+                  <td>Měření QC-01 (K = 10), QC-03, QC-04</td>
+                  <td>po C06</td>
+                  <td className="em-green">hotovo 2026-11-02, 34/34 PASS</td>
+                  <td className="mono">IND0040</td>
                 </tr>
                 <tr>
                   <td>Schválení v0.1 – v0.2.1</td>
-                  <td>
-                    <Todo />
-                  </td>
-                  <td>nezačato</td>
-                  <td>celý tým</td>
+                  <td>u každé baseline</td>
+                  <td className="em-green">zapsáno 2026-11-02, data podle commitů</td>
+                  <td className="mono">IND0040, KOL0603</td>
+                </tr>
+                <tr className="hl">
+                  <td>Merge + reporting tag + běh všech checks</td>
+                  <td>před C08</td>
+                  <td>čeká na merge do main</td>
+                  <td className="mono">IND0040</td>
                 </tr>
                 <tr>
-                  <td>Reporting tag + běh všech checks</td>
-                  <td>před obhajobou</td>
-                  <td>čeká na merge do main a měření QC</td>
-                  <td>
-                    <Todo />
-                  </td>
-                </tr>
-                <tr>
-                  <td>Risk register (část B) v evidence</td>
+                  <td>Risk register a C06 disposition v evidence</td>
                   <td>před C08</td>
                   <td>rizika R-01…R-03 v tomto reportu</td>
-                  <td>
-                    <Todo />
-                  </td>
+                  <td className="mono">KOL0603</td>
                 </tr>
               </tbody>
             </table>
             <div style={{ display: 'grid', gap: 24 }}>
               <div className="card">
                 <span className="tag">KRITICKÁ ZÁVISLOST</span>
-                <p>Běh měření QC je kritická cesta: reporting tag a nový běh checks mají smysl až po něm.</p>
+                <p>Reporting tag vzniká až po merge do main; obě části obhajoby se na něj odkazují.</p>
               </div>
-              <div className="card" style={{ borderColor: 'var(--rejected)', borderWidth: 3 }}>
-                <span className="tag" style={{ color: 'var(--rejected)' }}>
-                  PLANNING GAP
-                </span>
-                <p>Owner a termíny zbývajících balíků nejsou přidělené. Tým je doplní na nejbližší schůzce.</p>
+              <div className="card">
+                <span className="tag">KAPACITA</span>
+                <p>Zbývající práce je rozdělená mezi IND0040 a KOL0603, každý má dvě akce.</p>
               </div>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="04 Top Risks & Issues. Tři rizika z části B se skóre L × I před ošetřením. Actual residual je NOT VERIFIED všude, kde opatření ještě neproběhlo. Issues jsou oddělené: věci, které už nastaly.">
+      <Slide notes="04 Top Risks & Issues. Tři rizika z části B se skóre L × I před ošetřením. R-01 má ověřený actual residual díky měření 2026-11-02. R-02 je NOT VERIFIED, dokud tag nevznikne. Obě issues jsou uzavřené.">
         <Frame title="04 · Top Risks & Issues" section="Project Status">
           <div className="body" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 26 }}>
             <table className="t compact risk">
@@ -930,7 +902,7 @@ export default function TechnicalDesignReview() {
                     <td>{r.response}</td>
                     <td className="mono">
                       {r.expected}
-                      <div className={r.actual === 'NOT VERIFIED' ? 'em-red' : 'muted'} style={{ fontWeight: 600 }}>
+                      <div className={r.actual === 'NOT VERIFIED' ? 'em-red' : 'em-green'} style={{ fontWeight: 600 }}>
                         {r.actual}
                       </div>
                     </td>
@@ -944,39 +916,35 @@ export default function TechnicalDesignReview() {
                 ISSUES (UŽ NASTALO)
               </span>
               <p style={{ fontSize: 23 }}>
-                <b style={{ color: 'var(--ink)' }}>I-1</b> specifikace v0.1–v0.2.1 nepodepsána, v0.2.1 přesto v kódu (F3) · <b style={{ color: 'var(--ink)' }}>I-2</b> C04 dodáno až po C06 (F1),
-                proto je měření zatím jen pro K = 2
+                <b style={{ color: 'var(--ink)' }}>I-1</b> specifikace nebyla podepsána (F3) → <span className="em-green">uzavřeno, team-approval.md</span> ·{' '}
+                <b style={{ color: 'var(--ink)' }}>I-2</b> C04 dodáno až po C06 (F1) → <span className="em-green">uzavřeno, měření 2026-11-02</span>
               </p>
             </div>
           </div>
         </Frame>
       </Slide>
 
-      <Slide notes="05 Next Action Plan. Čtyři nejdůležitější akce, každá s Definition of Done ověřitelným v repozitáři a vazbou na nález nebo riziko. Owner a termín doplní tým — viz planning gap.">
+      <Slide notes="05 Next Action Plan. Čtyři zbývající akce, každá s ownerem, termínem C08 a Definition of Done ověřitelným v repozitáři.">
         <Frame title="05 · Next Action Plan" section="Project Status">
           <div className="body" style={{ display: 'flex', alignItems: 'center' }}>
             <table className="t">
               <thead>
                 <tr>
                   <th style={{ width: '4%' }}>#</th>
-                  <th style={{ width: '36%' }}>Akce</th>
-                  <th style={{ width: '11%' }}>Owner</th>
-                  <th style={{ width: '10%' }}>Due</th>
+                  <th style={{ width: '34%' }}>Akce</th>
+                  <th style={{ width: '12%' }}>Owner</th>
+                  <th style={{ width: '11%' }}>Due</th>
                   <th>Definition of Done</th>
-                  <th style={{ width: '11%' }}>Vazba</th>
+                  <th style={{ width: '10%' }}>Vazba</th>
                 </tr>
               </thead>
               <tbody>
-                {ACTIONS.map(([action, dod, link], i) => (
+                {ACTIONS.map(([action, owner, due, dod, link], i) => (
                   <tr key={action}>
                     <td className="mono">{i + 1}</td>
                     <td>{action}</td>
-                    <td>
-                      <Todo />
-                    </td>
-                    <td>
-                      <Todo />
-                    </td>
+                    <td className="mono">{owner}</td>
+                    <td>{due}</td>
                     <td className="muted">{dod}</td>
                     <td className="mono">{link}</td>
                   </tr>
@@ -987,7 +955,7 @@ export default function TechnicalDesignReview() {
         </Frame>
       </Slide>
 
-      <Slide notes="06 Decision & Outlook. Co je prokazatelně hotové a co ne. Největší omezení: evidence pochází z 2026-10-19, ne z reporting baseline. Forecast: GREEN po dokončení akcí 1–4, pokud měření projdou.">
+      <Slide notes="06 Decision & Outlook. Funkční rozsah, kvalitativní kritérium i schválení specifikace jsou doložené. Zbývající akce jsou administrativní a mají ownery. Forecast: GREEN do C08.">
         <Frame title="06 · Decision & Outlook" section="Project Status">
           <div className="body grid cols-2" style={{ gap: 40, alignContent: 'center' }}>
             <div className="card">
@@ -995,9 +963,9 @@ export default function TechnicalDesignReview() {
                 PROKAZATELNĚ HOTOVO
               </span>
               <ul className="clean small">
-                <li>OP-01 – OP-05 implementováno, test:c02 31/31, test:c05 20/20</li>
+                <li>OP-01 – OP-05 implementováno, test:c02 34/34, test:c05 20/20</li>
                 <li>Architektura a DD odpovídají kódu (C06: A1–A4, D1–D5 YES)</li>
-                <li>C04 kritérium a rozhodnutí zapsány (5bc56b0)</li>
+                <li>C04: QC-01…04 PASS, specifikace v0.1 – v0.2.1 schválena</li>
               </ul>
             </div>
             <div className="card">
@@ -1005,20 +973,19 @@ export default function TechnicalDesignReview() {
                 NENÍ HOTOVO
               </span>
               <ul className="clean small red">
-                <li>Běh měření QC-01 (K = 10), QC-03, QC-04 (testy napsané)</li>
-                <li>Schválení specifikace v0.1 – v0.2.1</li>
-                <li>Reporting tag a běh checks na něm</li>
+                <li>Merge do main a reporting tag</li>
+                <li>Risk register (část B) a C06 disposition v evidence</li>
               </ul>
             </div>
             <div className="card">
               <span className="tag">NEJVĚTŠÍ OMEZENÍ</span>
-              <p>Evidence je z běhu 2026-10-19, ne z reporting baseline. Owner a termíny akcí nejsou přidělené.</p>
+              <p>Záruky souběhu platí pro jeden proces se SQLite (ADR-001); jiné nasazení vyžaduje nové rozhodnutí.</p>
             </div>
             <div className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3 }}>
               <span className="tag" style={{ color: 'var(--confirmed)' }}>
                 FORECAST · ROZHODNUTÍ
               </span>
-              <p style={{ color: 'var(--ink-2)' }}>GREEN po akcích 1–4, pokud QC měření projdou. Rozhodnutí dnes: schválit v0.2.1 a přidělit ownery akcí.</p>
+              <p style={{ color: 'var(--ink-2)' }}>GREEN do C08. Rozhodnutí: potvrdit merge a reporting tag jako baseline CP1.</p>
             </div>
           </div>
         </Frame>

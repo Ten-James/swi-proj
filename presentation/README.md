@@ -65,9 +65,8 @@ the current slide.
 Executive Status, Scope & Delivery, Schedule & Resources, Top Risks & Issues,
 Next Action Plan, Decision & Outlook.
 
-Owners and due dates the team has not assigned yet are rendered as red
-`doplnit` placeholders; `REPORTING_BASELINE` in `src/slides.tsx` must be set to
-the reporting tag once it exists (A and C share it).
+`REPORTING_BASELINE` in `src/slides.tsx` must be set to the reporting tag once
+it exists (A and C share it).
 
 ## Notes on react-slides 0.1.0
 
