@@ -659,7 +659,7 @@ export default function TechnicalDesignReview() {
                   <td>
                     <Pill status="CONFIRMED">ACCEPT</Pill>
                   </td>
-                  <td>docs/c04 přidáno (5bc56b0) · měření K = 10 OPEN</td>
+                  <td>docs/c04 přidáno (5bc56b0) · <b>UZAVŘENO</b></td>
                 </tr>
                 <tr>
                   <td className="mono">F2</td>
@@ -685,7 +685,7 @@ export default function TechnicalDesignReview() {
         </Frame>
       </Slide>
 
-      <Slide notes="Nejdůležitější nález: tři NO z jediné příčiny. Postup ze zadání: claim, expected, observed, verify, disposition, closure. Closure je jen částečná: kritérium a rozhodnutí existují, měření pro K = 10 zatím ne — proto jej neoznačujeme jako vyřešený.">
+      <Slide notes="Nejdůležitější nález: tři NO z jediné příčiny. Postup ze zadání: claim, expected, observed, verify, disposition, closure. Nález je uzavřen: docs/c04 obsahuje celý řetězec concern, kritérium, měření za deklarovaných podmínek a rozhodnutí. Rozšíření měření na K = 10 a BR-04 je nová práce, kterou sledujeme jako riziko R-01 a akci 2, ne jako otevřený F1.">
         <Frame title="F1 · Chybí C04 Quality & Measurement." section="A5 · C06">
           <div className="body grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 36, alignContent: 'center' }}>
             <div style={{ display: 'grid', gap: 22 }}>
@@ -703,7 +703,7 @@ export default function TechnicalDesignReview() {
                 </div>
               ))}
             </div>
-            <Fragment className="card" style={{ borderColor: 'var(--pending)', borderWidth: 3, display: 'grid', gap: 22, alignContent: 'start' }}>
+            <Fragment className="card" style={{ borderColor: 'var(--confirmed)', borderWidth: 3, display: 'grid', gap: 22, alignContent: 'start' }}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <span className="tag" style={{ margin: 0 }}>
                   DISPOSITION
@@ -714,19 +714,19 @@ export default function TechnicalDesignReview() {
                 <span className="tag">CLOSURE EVIDENCE</span>
                 <ul className="clean small">
                   <li>
-                    Q1 kritérium: QC-01 … QC-04 v <code>docs/c04/quality-and-measurement.md</code>
+                    commit <code>5bc56b0</code> · <code>docs/c04/quality-and-measurement.md</code>
                   </li>
+                  <li>Q1 kritérium: QC-01 … QC-04 s PASS/FAIL oracle</li>
+                  <li>Q2 měření: protokol + podmínky, QC-01/QC-02 PASS (K = 2)</li>
                   <li>Q3 rozhodnutí: ponechat ADR-001 + podmínky přehodnocení</li>
                 </ul>
-                <ul className="clean small red" style={{ marginTop: 18 }}>
-                  <li>Q2 měření: jen K = 2, K = 10 / BR-04 / DB invariant chybí</li>
-                </ul>
               </div>
-              <div className="row" style={{ gap: 12 }}>
-                <Pill status="PENDING_APPROVAL">ČÁSTEČNĚ UZAVŘENO</Pill>
-                <span className="muted" style={{ fontSize: 21 }}>
-                  owner <Todo />
-                </span>
+              <div>
+                <span className="tag">NAVAZUJÍCÍ PRÁCE</span>
+                <p>Měření K = 10, BR-04 a DB invariant sleduje riziko R-01 a akce 2 v části C.</p>
+              </div>
+              <div>
+                <Pill status="CONFIRMED">UZAVŘENO</Pill>
               </div>
             </Fragment>
           </div>
@@ -944,8 +944,8 @@ export default function TechnicalDesignReview() {
                 ISSUES (UŽ NASTALO)
               </span>
               <p style={{ fontSize: 23 }}>
-                <b style={{ color: 'var(--ink)' }}>I-1</b> specifikace v0.1–v0.2.1 nepodepsána, v0.2.1 přesto v kódu (F3) · <b style={{ color: 'var(--ink)' }}>I-2</b> C04 dodáno až po C06,
-                měření Q2 neúplné (F1)
+                <b style={{ color: 'var(--ink)' }}>I-1</b> specifikace v0.1–v0.2.1 nepodepsána, v0.2.1 přesto v kódu (F3) · <b style={{ color: 'var(--ink)' }}>I-2</b> C04 dodáno až po C06 (F1),
+                proto je měření zatím jen pro K = 2
               </p>
             </div>
           </div>
