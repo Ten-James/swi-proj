@@ -2,7 +2,7 @@ import { Slide, Fragment, CodeStepper, DiagramStepper } from '@react-slides/core
 import { useShikiHighlighter } from '@react-slides/plugin-shiki'
 import { regionFadeIn } from '@react-slides/plugin-motion'
 
-import { Browser, Frame, Pill, asset, type Status } from './ui'
+import { BrandMark, Browser, Frame, Pill, asset, type Status } from './ui'
 import { ArchitectureDiagram, IntervalDiagram, OwnershipDiagram, SequenceDiagram, StateDiagram } from './diagrams'
 
 /* Both parts (A and C) must report against the same commit/tag. Update both lines when the tag exists. */
@@ -129,30 +129,33 @@ export default function TechnicalDesignReview() {
       {/* A · Technical Design Review                                */}
       {/* ---------------------------------------------------------- */}
 
-      <Slide notes="Část A, 8–10 minut. Jedna technická linie od pravidla BR-02 až po nález z C06. Dvě baseline: C06 hodnotilo f200832, aktuální stav ukazujeme na reporting baseline.">
-        <Frame dark>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <span className="tag" style={{ color: '#34d399' }}>
-              CP1 · ČÁST A · TECHNICAL DESIGN REVIEW
-            </span>
-            <h1 style={{ fontSize: 120 }}>Agent Reservations</h1>
-            <p className="lede" style={{ fontSize: 36 }}>
-              Rezervace výpočetního času AI agentů. Jedno pravidlo, sledované od specifikace až po review.
-            </p>
-            <div className="grid cols-3" style={{ marginTop: 64, maxWidth: 1500 }}>
-              <div>
-                <span className="tag">TÝM</span>
-                <p className="mono" style={{ fontSize: 24 }}>{TEAM}</p>
+      <Slide notes="Část A, 8–10 minut. Jedna technická linie od pravidla BR-02 až po nález z C06. C06 hodnotilo commit f200832; aktuální stav ukazuje reporting baseline v části C.">
+        <Frame>
+          <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 80, alignItems: 'center', flex: 1 }}>
+            <div>
+              <div className="row" style={{ marginBottom: 40 }}>
+                <BrandMark />
               </div>
-              <div>
-                <span className="tag">C06 ASSESSED BASELINE</span>
-                <p className="mono" style={{ fontSize: 24 }}>{ASSESSED_BASELINE}</p>
+              <h1>
+                Agent
+                <br />
+                Reservations
+              </h1>
+              <p className="lede" style={{ fontSize: 36, color: 'var(--ink-2)', marginTop: 36 }}>
+                Technical design review: jedno pravidlo od specifikace až po review.
+              </p>
+              <div className="row" style={{ marginTop: 44, gap: 12, flexWrap: 'wrap' }}>
+                <Pill status="CONFIRMED" />
+                <Pill status="PENDING_APPROVAL" />
+                <Pill status="REJECTED" />
+                <Pill status="CANCELLED" />
+                <Pill status="EXPIRED" />
               </div>
-              <div>
-                <span className="tag">REPORTING BASELINE</span>
-                <p className="mono" style={{ fontSize: 24 }}>{REPORTING_BASELINE}</p>
-              </div>
+              <p className="mono muted" style={{ fontSize: 22, marginTop: 56 }}>
+                {TEAM}
+              </p>
             </div>
+            <Browser src={asset('screenshots/home-public.png')} alt="Veřejný přehled rezervací" scrollTo={0.44} crop={{ x: 0.1, w: 0.8 }} style={{ height: 620 }} />
           </div>
         </Frame>
       </Slide>
