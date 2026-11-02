@@ -108,6 +108,27 @@ const RISKS: {
   },
 ]
 
+/* Slide C·03: plan per checkpoint, actual per git history (all branches); state marks late or remaining work. */
+const SCHEDULE: [string, string, string, string, 'done' | 'late' | 'next'][] = [
+  ['C01 spike + walking skeleton', 'C01', '8b6685f, 790511e · 09-15', 'IND0040, MER0126', 'done'],
+  ['C02 specifikace + implementace', 'C02', 'cf37879 → 78f831b · 09-21 – 10-03', 'MER0126', 'done'],
+  ['C02 baseline v0.2 · C03 merge', 'C02, C03', 'b107a9d, 4669362 · 10-05', 'PRO0458', 'done'],
+  ['C03 architektura + ADR-001', 'C03', 'a080ee1 · 10-05', 'MER0126', 'done'],
+  ['C05 detailní návrh + unit testy', 'C05', '9e2a25b, 1e24f55 · 10-12', 'IND0040, KOL0603', 'done'],
+  ['Code review v0.2.1 (C06 baseline)', 'před C06', '6fd380f, f200832 · 10-19', 'KOL0603', 'done'],
+  ['C04 + měření QC-01…04', 'C04', '5bc56b0, 7490c25 · 11-02, po C06', 'IND0040', 'late'],
+  ['Merge, reporting tag, všechny checks', 'C08', 'čeká na merge do main', 'IND0040', 'next'],
+  ['Risk register + C06 disposition', 'C08', 'rizika R-01…R-03 v tomto reportu', 'KOL0603', 'next'],
+]
+
+/* Git authors: Ten-James / James Indrák, Tomáš Kolečkář, mermema, agentt015. */
+const TEAM_MEMBERS: [string, string][] = [
+  ['IND0040', 'skeleton, C05, C04, prezentace'],
+  ['MER0126', 'C01 spike, C02, C03'],
+  ['KOL0603', 'C05 sladění, code review v0.2.1'],
+  ['PRO0458', 'README, merge baseline v0.2 a C03'],
+]
+
 /* Slide C·05: action, owner, due, Definition of Done, related finding/risk. */
 const ACTIONS: [string, string, string, string, string][] = [
   ['Merge c07-c08-presentation do main', 'IND0040', 'před C08', 'main obsahuje C04, QC testy a schválení', 'F1 · F3'],
@@ -811,61 +832,46 @@ export default function TechnicalDesignReview() {
         </Frame>
       </Slide>
 
-      <Slide notes="03 Schedule & Resources. Plán vs. skutečnost: C04 měl vzniknout v checkpointu C04, dodán až po C06 — to je skutečné zpoždění, dnes dohnané včetně měření. Schválení baseline bylo zapsáno zpětně s daty jejich commitů. Zbývající balíky dělí IND0040 a KOL0603, termín je C08.">
+      <Slide notes="03 Schedule & Resources. Plán podle checkpointů, skutečnost podle commitů v gitu (main a feature větve). Všichni čtyři členové týmu commitovali nebo mergovali. Jediné zpoždění: C04 vzniklo až po C06, dnes dohnané včetně měření. Zbývající dva balíky vlastní IND0040 a KOL0603.">
         <Frame title="03 · Schedule & Resources" section="Project Status">
-          <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.7fr', gap: 48, alignItems: 'center' }}>
+          <div className="body" style={{ display: 'grid', gridTemplateColumns: '1.45fr 0.55fr', gap: 44, alignItems: 'center' }}>
             <table className="t compact">
               <thead>
                 <tr>
-                  <th style={{ width: '36%' }}>Work package</th>
-                  <th>Plán</th>
-                  <th>Skutečnost / forecast</th>
-                  <th>Owner</th>
+                  <th style={{ width: '30%' }}>Work package</th>
+                  <th style={{ width: '12%' }}>Plán</th>
+                  <th>Skutečnost (commit, datum)</th>
+                  <th style={{ width: '20%' }}>Owner</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>C04 Quality & Measurement</td>
-                  <td>checkpoint C04</td>
-                  <td>
-                    <span className="em-red">dodáno 2026-11-02, po C06</span>
-                  </td>
-                  <td className="mono">IND0040</td>
-                </tr>
-                <tr>
-                  <td>Měření QC-01 (K = 10), QC-03, QC-04</td>
-                  <td>po C06</td>
-                  <td className="em-green">hotovo 2026-11-02, 34/34 PASS</td>
-                  <td className="mono">IND0040</td>
-                </tr>
-                <tr>
-                  <td>Schválení v0.1 – v0.2.1</td>
-                  <td>u každé baseline</td>
-                  <td className="em-green">zapsáno 2026-11-02, data podle commitů</td>
-                  <td className="mono">IND0040, KOL0603</td>
-                </tr>
-                <tr className="hl">
-                  <td>Merge + reporting tag + běh všech checks</td>
-                  <td>před C08</td>
-                  <td>čeká na merge do main</td>
-                  <td className="mono">IND0040</td>
-                </tr>
-                <tr>
-                  <td>Risk register a C06 disposition v evidence</td>
-                  <td>před C08</td>
-                  <td>rizika R-01…R-03 v tomto reportu</td>
-                  <td className="mono">KOL0603</td>
-                </tr>
+                {SCHEDULE.map(([wp, plan, actual, owner, state]) => (
+                  <tr key={wp} className={state === 'next' ? 'hl' : undefined}>
+                    <td>{wp}</td>
+                    <td>{plan}</td>
+                    <td className={state === 'late' ? 'em-red' : state === 'next' ? undefined : 'mono'}>{actual}</td>
+                    <td className="mono">{owner}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
             <div style={{ display: 'grid', gap: 24 }}>
               <div className="card">
-                <span className="tag">KRITICKÁ ZÁVISLOST</span>
-                <p>Reporting tag vzniká až po merge do main; obě části obhajoby se na něj odkazují.</p>
+                <span className="tag">TÝM</span>
+                <ul className="clean small">
+                  {TEAM_MEMBERS.map(([login, role]) => (
+                    <li key={login}>
+                      <b className="mono" style={{ color: 'var(--ink)' }}>
+                        {login}
+                      </b>{' '}
+                      {role}
+                    </li>
+                  ))}
+                </ul>
               </div>
               <div className="card">
-                <span className="tag">KAPACITA</span>
-                <p>Zbývající práce je rozdělená mezi IND0040 a KOL0603, každý má dvě akce.</p>
+                <span className="tag">KRITICKÁ ZÁVISLOST</span>
+                <p>Reporting tag vzniká až po merge do main; obě části obhajoby se na něj odkazují.</p>
               </div>
             </div>
           </div>
