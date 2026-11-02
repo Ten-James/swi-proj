@@ -121,7 +121,7 @@ const ACTIONS: [string, string, string][] = [
 ]
 
 export default function TechnicalDesignReview() {
-  const Highlighter = useShikiHighlighter({ theme: 'github-dark-default', langs: ['typescript'] })
+  const Highlighter = useShikiHighlighter({ theme: 'github-light-default', langs: ['typescript'] })
 
   return (
     <>
