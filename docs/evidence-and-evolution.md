@@ -358,14 +358,14 @@ volání aplikační policy.
 
 | # | Action / input | Expected BEFORE execution | Actual AFTER execution | Evidence |
 |---|---|---|---|---|
-| 1 | Smazat Reservation R1, vložit B1 `CONFIRMED` | fixtura uložena | *doplnit po běhu* | |
-| 2 | Nezávisle přečíst uložené řádky R1 | právě 1 řádek: `CONFIRMED [10:00,11:00)` | *doplnit po běhu* | |
-| 3 | `POST /api/reservations` B2 `[11:00,12:00)` se Session U2 | `201`, `status = CONFIRMED` (sousední intervaly se nepřekrývají) | *doplnit po běhu* | |
-| 4 | Znovu přečíst committed stav R1 | 2 řádky, oba `CONFIRMED` `[10:00,11:00)` a `[11:00,12:00)`; uložené B2 má vrácené id; 0 překrývajících se `CONFIRMED` dvojic | *doplnit po běhu* | |
-| 5 | Reset a zopakovat kroky 1–4, nakonec smazat data R1 | stejný výsledek; R1 bez řádků | *doplnit po běhu* | |
+| 1 | Smazat Reservation R1, vložit B1 `CONFIRMED` | fixtura uložena | B1 uložena (`cmw9f5vvj…`) | log krok 1 |
+| 2 | Nezávisle přečíst uložené řádky R1 | právě 1 řádek: `CONFIRMED [10:00,11:00)` | `CONFIRMED [10:00Z,11:00Z)`, 1 řádek | log krok 2 |
+| 3 | `POST /api/reservations` B2 `[11:00,12:00)` se Session U2 | `201`, `status = CONFIRMED` (sousední intervaly se nepřekrývají) | `201 {"status":"CONFIRMED"}`, id `cmw9f5vxs…` | log krok 3 |
+| 4 | Znovu přečíst committed stav R1 | 2 řádky, oba `CONFIRMED` `[10:00,11:00)` a `[11:00,12:00)`; uložené B2 má vrácené id; 0 překrývajících se `CONFIRMED` dvojic | 2× `CONFIRMED` `[10:00,11:00)` + `[11:00,12:00)`, B2 = vrácené id, `overlapPairs=0` | log krok 4 |
+| 5 | Reset a zopakovat kroky 1–4, nakonec smazat data R1 | stejný výsledek; R1 bez řádků | opakování: `201 CONFIRMED`, 2× `CONFIRMED`, `overlapPairs=0`; po resetu 0 řádků | log kroky 1–5 (repeat) |
 
 - **Final postcondition / oracle:** v DB 2× `CONFIRMED` pro R1, `confirmedOverlapPairs(R1) = 0`.
-- **Verdict:** *NOT RUN — doplnit po běhu.*
+- **Verdict:** **PASS** — 2026-11-09, viz běh níže (všech 9 kroků PASS).
 
 #### C08 / TC-C08-02 — překrývající se Create je odmítnut (BR-02)
 
@@ -375,16 +375,87 @@ volání aplikační policy.
 
 | # | Action / input | Expected BEFORE execution | Actual AFTER execution | Evidence |
 |---|---|---|---|---|
-| 1 | Smazat Reservation R1, vložit B1 `CONFIRMED` | fixtura uložena | *doplnit po běhu* | |
-| 2 | Nezávisle přečíst výchozí stav | právě 1 řádek: B1 `CONFIRMED [10:00,11:00)` | *doplnit po běhu* | |
-| 3 | `POST /api/reservations` B2 `[10:30,11:30)` se Session U2 | `409`, `code = AGENT_UNAVAILABLE`, žádné `id` | *doplnit po běhu* | |
-| 4 | Přečíst committed stav po odmítnutí | B1 beze změny `CONFIRMED [10:00,11:00)`; R1 má stále právě 1 řádek (B2 neuložen); 0 překrývajících se dvojic | *doplnit po běhu* | |
-| 5 | Reset a zopakovat kroky 1–4, nakonec smazat data R1 | reprodukovatelný stejný výsledek | *doplnit po běhu* | |
+| 1 | Smazat Reservation R1, vložit B1 `CONFIRMED` | fixtura uložena | B1 uložena (`cmw9f5w46…`) | log krok 1 |
+| 2 | Nezávisle přečíst výchozí stav | právě 1 řádek: B1 `CONFIRMED [10:00,11:00)` | B1 `CONFIRMED [10:00Z,11:00Z)`, 1 řádek | log krok 2 |
+| 3 | `POST /api/reservations` B2 `[10:30,11:30)` se Session U2 | `409`, `code = AGENT_UNAVAILABLE`, žádné `id` | `409 {"error":"Agent is not free in the requested time window","code":"AGENT_UNAVAILABLE"}`, bez `id` | log krok 3 |
+| 4 | Přečíst committed stav po odmítnutí | B1 beze změny `CONFIRMED [10:00,11:00)`; R1 má stále právě 1 řádek (B2 neuložen); 0 překrývajících se dvojic | B1 `CONFIRMED [10:00,11:00)` beze změny, `rows=1`, `overlapPairs=0` | log krok 4 |
+| 5 | Reset a zopakovat kroky 1–4, nakonec smazat data R1 | reprodukovatelný stejný výsledek | opakování: stejné `409 AGENT_UNAVAILABLE`, `rows=1`; po resetu 0 řádků | log kroky 1–5 (repeat) |
 
 - **Final postcondition / oracle:** R1 obsahuje jen B1, `confirmedOverlapPairs(R1) = 0`.
-- **Verdict:** *NOT RUN — doplnit po běhu.*
+- **Verdict:** **PASS** — 2026-11-09, viz běh níže (všech 9 kroků PASS).
 
 **Co tyto případy nepokrývají:** souběžné konfliktní Create (pokrývá C02 scénář
 „OP-03 allows at most one concurrent conflicting Create“ a C04 `QC-01`), cestu
 Approve (C02 OP-05 scénáře) a Agenty s kapacitou > 1 (v systému neexistují,
 `capacity = 1`).
+
+### Krok 2 — skutečné provedení proti baseline
+
+Provedeno 2026-11-09 (Linux, Node v22.21.1) proti `next build` + `next start` nad
+čerstvou `test.db` (`db:deploy` + `db:seed`). Testovací commit `1e88185` mění jen
+`scripts/`, `package.json` (nový skript) a CI; hlavička běhu potvrzuje, že `src/` a
+`prisma/` odpovídají `c08-baseline`.
+
+```text
+$ DATABASE_URL="file:./test.db" npm run test:c08
+C08 baseline regression test cases (TC-C08-01, TC-C08-02)
+  commit       = 1e88185
+  API_URL      = http://localhost:3000
+  DATABASE_URL = file:./test.db
+  started      = 2026-11-09T15:31:48.663Z
+
+TC-C08-01 — positive adjacent Create keeps BR-02
+  PASS  3 POST /api/reservations B2 [11:00,12:00) as another User
+        actual:   201 {"id":"cmw9f5vxs0004rnna12ertw3v",...,"status":"CONFIRMED"}
+  PASS  4 read committed state of R1 in the test process
+        actual:   CONFIRMED [2035-03-12T10:00:00.000Z, 2035-03-12T11:00:00.000Z);
+                  CONFIRMED [2035-03-12T11:00:00.000Z, 2035-03-12T12:00:00.000Z); ... overlapPairs=0
+  ... (kroky 1–4 opakovány po resetu se stejným výsledkem)
+  PASS  5 reset test data  — actual: 0 rows
+TC-C08-01 verdict: PASS
+
+TC-C08-02 — negative overlapping Create is rejected (BR-02)
+  PASS  3 POST /api/reservations B2 [10:30,11:30) as another User
+        actual:   409 {"error":"Agent is not free in the requested time window","code":"AGENT_UNAVAILABLE"}
+  PASS  4 read committed state after the rejected request
+        actual:   B1=CONFIRMED [2035-03-12T10:00:00.000Z, 2035-03-12T11:00:00.000Z); rows=1; overlapPairs=0
+  ... (kroky 1–4 opakovány po resetu se stejným výsledkem)
+TC-C08-02 verdict: PASS
+
+C08 baseline regression PASSED          (exit code 0)
+```
+
+Stávající sada na stejné baseline a DB (stejný den): `test:c02` **PASS 31/31**,
+`test:api-persistence` **PASS**, `test:c05` **PASS 20/20**, `test:architecture`
+**PASS**. CI běh na PR C08: odkaz doplněn v sekci „CI“ níže.
+
+**Limit důkazu:** jde o sekvenční požadavky jednoho klienta; souběh ověřují C02/C04
+scénáře. Fixtura B1 je zapsána přímo do DB (aplikace nemá admin API pro import),
+což odpovídá existujícímu C02 postupu.
+
+### Pozorované omezení baseline (podnět CR-08)
+
+Stejná baseline a server, Agent „Vision Analyst“ (`requiresApproval = false`),
+nově registrovaný User. Příkazy (bash; v PowerShellu stejné tělo přes
+`Invoke-RestMethod`):
+
+```bash
+curl -s -c jar -H 'Content-Type: application/json' \
+  -d '{"name":"C08 probe","email":"c08-probe@test.local","password":"C08Probe123!"}' \
+  http://localhost:3000/api/auth/register
+curl -s -b jar -H 'Content-Type: application/json' \
+  -d '{"agentId":"<Vision Analyst id>","startTime":"2035-03-13T10:07:13Z","endTime":"2035-03-13T10:52:41Z"}' \
+  http://localhost:3000/api/reservations
+curl -s -b jar -H 'Content-Type: application/json' \
+  -d '{"agentId":"<Vision Analyst id>","startTime":"2035-03-14T00:00:00Z","endTime":"2035-03-17T00:00:00Z"}' \
+  http://localhost:3000/api/reservations
+```
+
+| Požadavek | Pozorovaná odpověď | Uložený stav (nezávislé SQL čtení) |
+|---|---|---|
+| `[10:07:13Z, 10:52:41Z)` | `201 {"status":"CONFIRMED"}` | `CONFIRMED [2035-03-13T10:07:13Z, 10:52:41Z)` |
+| `[2035-03-14T00:00Z, 2035-03-17T00:00Z)` (72 h) | `201 {"status":"CONFIRMED"}` | `CONFIRMED [2035-03-14T00:00Z, 2035-03-17T00:00Z)` |
+| `GET /api/availability` 2035-03-15 `[10:00,11:00)` | `200 {"availability":"UNAVAILABLE"}` | — Agent blokován třemi dny jednou Reservation |
+
+Chování je v souladu s v0.2.1 (specifikace žádnou granularitu ani maximální délku
+nedefinuje), tedy nejde o defekt, ale o chybějící pravidlo — vstup pro CR-08.
