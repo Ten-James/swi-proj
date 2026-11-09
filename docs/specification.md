@@ -113,6 +113,30 @@ Rationale: a Reservation starting in the past could never be cancelled (BR-03)
 and, for approval-required Agents, would be created only to expire (REQ-12).
 Existing Reservations are not affected.
 
+## BR-07 — Slot granularity and maximum duration *(v0.3, CR-08)*
+
+A new Reservation must satisfy both conditions:
+
+- `startTime` and `endTime` lie on the 15-minute slot grid in UTC: minutes are
+  0, 15, 30 or 45 and seconds and milliseconds are 0
+  (`epochMilliseconds mod 900000 = 0`);
+- `endTime - startTime <= 4 hours`; exactly 4 hours is allowed.
+
+Together with BR-01 (`startTime < endTime`), the shortest Reservation is 15 minutes.
+Alignment is evaluated on the instant, so an instant with any real-world offset
+(all are multiples of 15 minutes, e.g. `+01:00`, `+05:30`, `+05:45`) is aligned
+in UTC exactly when it is aligned in its own local time.
+
+BR-07 is evaluated by Create only, after BR-01 and BR-06 and before BR-05, BR-02
+and BR-04. Reservations stored before v0.3 are not affected: they are not
+re-validated by Cancel or Approve and keep blocking their Agent under BR-02.
+Availability (OP-02) is a read-only query and still accepts any BR-01 interval.
+
+Rationale: BR-04 limits the number of active Reservations, not their length;
+without a maximum duration one User can block an exclusive Agent for days.
+Arbitrary instants fragment an Agent's schedule into unusable gaps
+(CR-08, [intent-and-change.md](intent-and-change.md#c08--cr-08--controlled-change-card)).
+
 ---
 
 # OP-01 — Create Reservation
@@ -140,6 +164,10 @@ If any validation or business rule fails, no Reservation shall be created.
 **REQ-04:**  
 The system shall not create a Reservation if doing so would exceed BR-04.
 
+**REQ-13** *(v0.3, CR-08)*:  
+The system shall not create a Reservation whose interval violates BR-07; such a
+request is rejected as invalid input and no Reservation is created.
+
 ## Preconditions
 
 - User is identified by an authenticated Session.
@@ -164,7 +192,7 @@ The system shall not create a Reservation if doing so would exceed BR-04.
 
 ## Referenced rules
 
-BR-01, BR-02, BR-04, BR-05.
+BR-01, BR-02, BR-04, BR-05; *(v0.2.1)* BR-06; *(v0.3)* BR-07.
 
 ## Main success scenario
 
@@ -183,6 +211,8 @@ BR-01, BR-02, BR-04, BR-05.
 - invalid interval → reject; no Reservation created;
 - *(v0.2.1)* `startTime <= currentTime` (BR-06) → reject; no Reservation created;
 - *(v0.2.1)* note longer than 500 characters → reject; no Reservation created;
+- *(v0.3)* interval not on the 15-minute grid or longer than 4 hours (BR-07) →
+  reject as invalid input; no Reservation created;
 - overlapping `CONFIRMED` Reservation → reject; no Reservation created;
 - active Reservation limit exceeded → reject; no Reservation created;
 - persistence failure → no successful result is reported.
@@ -193,6 +223,8 @@ BR-01, BR-02, BR-04, BR-05.
 - `startTime == endTime` → rejected;
 - *(v0.2.1)* `startTime` one hour before `currentTime` → rejected;
 - *(v0.2.1)* `startTime` without offset (`2035-01-15T10:00:00`) → rejected;
+- *(v0.3)* `[10:00,14:00)` (exactly 4 hours) → created;
+- *(v0.3)* `[10:07,10:52)`, `[10:00:30,11:00)` or `[10:00,14:15)` → rejected;
 - inactive Agent → rejected;
 - overlap with an existing `CONFIRMED` Reservation → rejected;
 - User already has `N` active Reservations → rejected.
@@ -713,3 +745,69 @@ Concurrent Create and Approve operations must not produce overlapping
 
 The system must consistently apply the `currentTime >= startTime` boundary and
 persist `EXPIRED` no later than the next read or decision.
+
+---
+
+# Specification Baseline v0.3 — CR-08 slot granularity
+
+## Changed condition
+
+CR-08 (C08) adds BR-07 and REQ-13 for Create. Source, alternatives, impact analysis
+and decision: [Controlled Change Card](intent-and-change.md#c08--cr-08--controlled-change-card).
+
+## Delta for existing operations
+
+| Operation | v0.3 delta |
+|---|---|
+| OP-01 Create | BR-07 is checked after BR-01 and BR-06; violation → reject as invalid input (`NOT_SLOT_ALIGNED` or `DURATION_EXCEEDED`), no Reservation created |
+| OP-02 Check Availability | unchanged — read-only query over any BR-01 interval |
+| OP-03 Confirm | unchanged — commit step inside Create (or OP-05) |
+| OP-04 Cancel | unchanged — does not re-validate the stored interval |
+| OP-05 Approve / Reject | unchanged — a `PENDING_APPROVAL` Reservation stored before v0.3 may be approved even if it violates BR-07 |
+
+## Explicitly unaffected parts
+
+- BR-01 and BR-02 semantics (half-open intervals, overlap condition);
+- the state model: an invalid Create never creates a Reservation (`[none]` stays);
+- BR-04 and the active Reservation limit;
+- persisted data and the database schema — no migration;
+- configuration — the 15-minute slot and 4-hour maximum are constants of this
+  baseline; changing them is a new change request.
+
+## Activity — Create Reservation v0.3
+
+```mermaid
+flowchart TD
+  A([User submits Agent, interval, note]) --> B{BR-01: valid instants with offset, start < end?}
+  B -- no --> X1[400 invalid range — nothing stored]
+  B -- yes --> C{BR-06: startTime > currentTime?}
+  C -- no --> X2[400 START_IN_PAST — nothing stored]
+  C -- yes --> D{BR-07: on 15-min grid and at most 4 h?}
+  D -- not aligned --> X3[400 NOT_SLOT_ALIGNED — nothing stored]
+  D -- too long --> X4[400 DURATION_EXCEEDED — nothing stored]
+  D -- yes --> E{BR-05: Agent exists and active?}
+  E -- no --> X5[404 — nothing stored]
+  E -- yes --> F{BR-02: overlapping CONFIRMED?}
+  F -- yes --> X6[409 AGENT_UNAVAILABLE — nothing stored]
+  F -- no --> G{BR-04: below active limit?}
+  G -- no --> X7[403 QUOTA_EXCEEDED — nothing stored]
+  G -- yes --> H[(Create CONFIRMED or PENDING_APPROVAL)]
+```
+
+Source: [`diagrams/mermaid/17-activity-create-v03.mmd`](diagrams/mermaid/17-activity-create-v03.mmd).
+
+## Requirement acceptance review — REQ-13
+
+- Meaning: Create accepts only intervals on the 15-minute UTC grid lasting at most
+  4 hours.
+- Need: fair sharing of an exclusive Agent (BR-04 limits count, not length) and a
+  schedule without unusable gaps.
+- Observable result: `400` with a domain code, and no persisted Reservation.
+- Feasibility: pure check on the requested interval, no database access.
+- Verification: aligned / exactly 4 h accepted; minute, second and millisecond
+  misalignment and 4 h 15 min rejected; offset `+05:45` handled; pre-v0.3 rows still
+  approvable and cancellable (TC-CR08-01 … 07).
+- State/time: independent of `currentTime`; ordered after BR-06.
+- Concurrency: none — evaluated before the transaction.
+- Uncertainty: whether 4 hours suits long batch Agents (peer review question; per-Agent
+  limits deferred in CR-08 option D).

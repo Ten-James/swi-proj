@@ -8,6 +8,8 @@ const ruleViolationStatus: Record<ReservationRuleCode, number> = {
   INVALID_STATE: 409,
   AFTER_START: 409,
   START_IN_PAST: 400,
+  NOT_SLOT_ALIGNED: 400,
+  DURATION_EXCEEDED: 400,
   AGENT_INACTIVE: 409,
   AGENT_UNAVAILABLE: 409,
 };

@@ -188,3 +188,36 @@ Approval attempted with `currentTime == startTime` → `EXPIRED`; approval rejec
 
 Two conflicting Create / Approve operations execute concurrently → at most one
 Reservation reaches `CONFIRMED`.
+
+
+# Baseline v0.3 — CR-08 slot granularity (BR-07 / REQ-13)
+
+Executable cases: `npm run test:cr08` (TC-CR08-01 … 07, HTTP + independent DB read)
+and `npm run test:c05` (BR-07 unit cases).
+
+## Positive
+
+- `[10:00,11:00)` on a free active Agent → `201`, persisted;
+- exactly 4 hours `[12:00,16:00)` → `201`;
+- `2035-…T19:45:00+05:45` – `20:45+05:45` (= `14:00Z`–`15:00Z`) → `201`, stored as `14:00Z`.
+
+## Negative
+
+- `[10:07,10:52)`, `[10:00:30,11:00)`, `[10:00:00.001,11:00)` → `400 NOT_SLOT_ALIGNED`;
+- `[12:00,16:15)` and a 72-hour interval → `400 DURATION_EXCEEDED`;
+- in every negative case the Agent has no new persisted row.
+
+## Boundary and rule order
+
+- 4:00 accepted, 4:15 rejected (next grid point after the maximum);
+- past and unaligned start → `400 START_IN_PAST` (BR-06 before BR-07);
+- unaligned interval on an inactive Agent → `400 NOT_SLOT_ALIGNED`, not `404`.
+
+## Pre-v0.3 data
+
+- stored unaligned `PENDING_APPROVAL` → Admin approves → `CONFIRMED`;
+- stored 72-hour `CONFIRMED` → owner cancels → `CANCELLED`.
+
+## Regression
+
+TC-C08-01 / TC-C08-02 (`npm run test:c08`) and the full C02 suite stay PASS.
