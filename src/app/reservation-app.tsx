@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AppHeader, { type SessionUser } from "@/components/app-header";
 import StatusBadge, { reservationStatuses, type ReservationStatus } from "@/components/status-badge";
 import { formatDay, formatRange, formatTime } from "@/lib/format";
+import { MAX_DURATION_MINUTES, SLOT_MINUTES } from "@/lib/reservation-policy";
 
 interface Agent {
   id: string;
@@ -316,8 +317,9 @@ export default function ReservationApp({ user }: { user: SessionUser | null }) {
                   </select>
                 </label>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="field-label">Začátek<input required type="datetime-local" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="field" /></label>
-                  <label className="field-label">Konec<input required type="datetime-local" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="field" /></label>
+                  <label className="field-label">Začátek<input required type="datetime-local" step={SLOT_MINUTES * 60} value={startTime} onChange={(event) => setStartTime(event.target.value)} className="field" /></label>
+                  <label className="field-label">Konec<input required type="datetime-local" step={SLOT_MINUTES * 60} value={endTime} onChange={(event) => setEndTime(event.target.value)} className="field" /></label>
+                  <p className="text-xs text-ink-muted sm:col-span-2">Rezervace začíná a končí na celé čtvrthodině a trvá nejvýše {MAX_DURATION_MINUTES / 60} hodiny.</p>
                 </div>
                 <label className="field-label">Poznámka (volitelné)<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} className="field resize-none" /></label>
                 <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">

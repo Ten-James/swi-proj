@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   assertCanConfirm,
   assertNoConfirmedOverlap,
+  assertSlotGranularity,
   assertStartsInFuture,
   assertWithinQuota,
   initialStatus,
@@ -124,6 +125,8 @@ export async function checkAgentAvailability(
 
 export async function createReservation(input: CreateReservationInput, now = new Date()) {
   assertStartsInFuture(input, now);
+  // BR-07 after BR-06 and before any database read: an off-grid or too long interval is invalid input.
+  assertSlotGranularity(input);
 
   return prisma.$transaction(async (tx) => {
     await expirePendingReservations(tx, now);
