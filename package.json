@@ -19,7 +19,8 @@
     "test:c02": "tsx scripts/c02-verification.ts",
     "test:architecture": "tsx scripts/architecture-check.ts",
     "test:c05": "tsx scripts/c05-unit-tests.ts",
-    "test:c08": "tsx scripts/c08-baseline-tests.ts"
+    "test:c08": "tsx scripts/c08-baseline-tests.ts",
+    "test:cr08": "tsx scripts/cr08-acceptance-tests.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",

@@ -4,18 +4,24 @@ import { parseInstant, parseInterval } from "../src/lib/request-body";
 import {
   assertCanConfirm,
   assertNoConfirmedOverlap,
+  assertSlotGranularity,
   assertStartsInFuture,
   assertWithinQuota,
   initialStatus,
   intervalsOverlap,
+  isSlotAligned,
+  MAX_DURATION_MINUTES,
   overlapBounds,
   planCancel,
   planDecision,
   ReservationRuleViolation,
+  SLOT_MINUTES,
   type ReservationRuleCode,
 } from "../src/lib/reservation-policy";
 
 const at = (hour: number) => new Date(Date.UTC(2026, 9, 20, hour));
+const utc = (iso: string) => new Date(iso);
+const span = (start: string, end: string) => ({ startTime: utc(start), endTime: utc(end) });
 const owner = { id: "u1", role: "USER" as const };
 const stranger = { id: "u2", role: "USER" as const };
 const admin = { id: "a1", role: "ADMIN" as const };
@@ -118,6 +124,36 @@ const cases: Array<[string, () => void]> = [
     assert.doesNotThrow(() => assertStartsInFuture({ startTime: at(10) }, at(9)));
     expectViolation(() => assertStartsInFuture({ startTime: at(10) }, at(10)), "START_IN_PAST", /after the current time/);
     expectViolation(() => assertStartsInFuture({ startTime: at(9) }, at(10)), "START_IN_PAST", /after the current time/);
+  }],
+
+  // DD-T9 — BR-07 (v0.3, CR-08): 15-minute UTC grid and at most 4 hours
+  ["slot granularity: grid is 15 minutes and the maximum is 240 minutes", () => {
+    assert.equal(SLOT_MINUTES, 15);
+    assert.equal(MAX_DURATION_MINUTES, 240);
+  }],
+  ["slot granularity: aligned intervals pass, including the shortest slot and exactly 4 h", () => {
+    assert.doesNotThrow(() => assertSlotGranularity(span("2035-01-16T10:00:00Z", "2035-01-16T10:15:00Z")));
+    assert.doesNotThrow(() => assertSlotGranularity(span("2035-01-16T10:45:00Z", "2035-01-16T11:30:00Z")));
+    assert.doesNotThrow(() => assertSlotGranularity(span("2035-01-16T12:00:00Z", "2035-01-16T16:00:00Z")));
+  }],
+  ["slot granularity: minute, second and millisecond misalignment is NOT_SLOT_ALIGNED", () => {
+    expectViolation(() => assertSlotGranularity(span("2035-01-16T10:07:00Z", "2035-01-16T11:00:00Z")), "NOT_SLOT_ALIGNED", /15-minute/);
+    expectViolation(() => assertSlotGranularity(span("2035-01-16T10:00:00Z", "2035-01-16T10:52:00Z")), "NOT_SLOT_ALIGNED", /15-minute/);
+    expectViolation(() => assertSlotGranularity(span("2035-01-16T10:00:30Z", "2035-01-16T11:00:00Z")), "NOT_SLOT_ALIGNED", /15-minute/);
+    expectViolation(() => assertSlotGranularity(span("2035-01-16T10:00:00.001Z", "2035-01-16T11:00:00Z")), "NOT_SLOT_ALIGNED", /15-minute/);
+  }],
+  ["slot granularity: longer than 4 h is DURATION_EXCEEDED (4:15 and 72 h)", () => {
+    expectViolation(() => assertSlotGranularity(span("2035-01-16T12:00:00Z", "2035-01-16T16:15:00Z")), "DURATION_EXCEEDED", /at most 4 hours/);
+    expectViolation(() => assertSlotGranularity(span("2035-01-14T00:00:00Z", "2035-01-17T00:00:00Z")), "DURATION_EXCEEDED", /at most 4 hours/);
+  }],
+  ["slot granularity: misalignment is reported before excessive duration", () => {
+    expectViolation(() => assertSlotGranularity(span("2035-01-16T10:07:00Z", "2035-01-16T20:00:00Z")), "NOT_SLOT_ALIGNED", /15-minute/);
+  }],
+  ["slot granularity: alignment is judged on the instant, whatever the offset", () => {
+    assert.equal(isSlotAligned(utc("2035-01-16T19:45:00+05:45")), true);
+    assert.equal(isSlotAligned(utc("2035-01-16T15:30:00+05:30")), true);
+    assert.equal(isSlotAligned(utc("2035-01-16T11:00:00+01:00")), true);
+    assert.equal(isSlotAligned(utc("2035-01-16T11:07:00+01:00")), false);
   }],
 
   // Adapter — BR-01 input format: explicit offset required, start < end
