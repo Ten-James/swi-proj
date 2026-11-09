@@ -65,3 +65,6 @@ jobs:
 
       - name: Run C02 behaviour verification
         run: npm run test:c02
+
+      - name: Run C08 baseline regression test cases
+        run: npm run test:c08
