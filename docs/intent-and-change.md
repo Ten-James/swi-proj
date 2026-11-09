@@ -190,5 +190,10 @@ doloženou potřebou delších jobů a existující admin API pro Agenty.
 
 **Open uncertainty / monitoring or next decision trigger:** výsledek peer review
 (Indrák); požadavek na delší joby (→ varianta D); potřeba kapacity > 1 (pak se
-`BR-02` i tento CR musí přehodnotit). Stav je **PLANNED**; IMPLEMENTED a VERIFIED
-zaznamená C09.
+`BR-02` i tento CR musí přehodnotit). Stav v C08: **PLANNED**.
+
+**Stav po C09 (2026-11-09):** **IMPLEMENTED** (`c568119`, `8302d3c`) a **VERIFIED**
+automatizovanými testy (TC-CR08-01…06, TC-C08-01/02, C02, unit), v CI i ve dvou
+autorských čistých checkoutech. Release candidate je **CONDITIONAL**, dokud chybí
+peer review a nezávislý checkout Jamese Indráka
+([C09 record](evidence-and-evolution.md#c09--integration-ci-and-release-record)).

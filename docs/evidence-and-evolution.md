@@ -575,7 +575,7 @@ npm run db:deploy && npm run db:seed && npm start   # ruční spuštění (port 
 | Commit | Run | Výsledek | Artefakt |
 |---|---|---|---|
 | `da78481` | [42648005792](https://github.com/Ten-James/swi-proj/actions/runs/42648005792) | **success** — jediný krok „Verify (build + all checks)“ za 1 min 37 s | `release-candidate-da78481…` (2 850 684 B, digest `sha256:93739939…`) |
-| `abeb5d7` | viz [Actions pro větev](https://github.com/Ten-James/swi-proj/actions?query=branch%3Ac09-cr08-slot-granularity) | doplní se po doběhnutí | `release-candidate-abeb5d7…` |
+| `abeb5d7` | [42648578259](https://github.com/Ten-James/swi-proj/actions/runs/42648578259) | **success** | `release-candidate-abeb5d7…` (2 850 657 B  digest `sha256:908f39ed…`) |
 
 Lokálně (Linux, Node v22.21.1): `npm run verify` na `da78481` → **verify PASS**,
 14/14 kroků, exit 0. Negativní kontrola pipeline: `VERIFY_DATABASE_URL=file:./dev.db`
