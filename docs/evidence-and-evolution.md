@@ -302,3 +302,89 @@ Spuštěno 2026-10-19 na čisté SQLite (`db:deploy` + `db:seed`) a `next dev`:
   ADR-001; útočník jím může dočasně zablokovat přihlášení cizího e-mailu.
 - `BR-06` a v0.2.1 čekají na schválení týmem ([team-approval.md](team-approval.md)).
 
+
+## C08 — Controlled Change evidence
+
+Change Card, Impact Matrix, Options Matrix a rozhodnutí:
+[intent-and-change.md — C08 / CR-08](intent-and-change.md#c08--cr-08--controlled-change-card).
+
+### Krok 0 — before baseline
+
+| Položka | Hodnota |
+|---|---|
+| Commit / tag | `61b4b4c` (merge PR #15), anotovaný tag `c08-baseline` |
+| Přijatá specifikace | [Specification Baseline v0.2.1](specification.md): `BR-01` (polouzavřené `[start,end)`, instant s offsetem/`Z`), `BR-02` (žádný překryv `CONFIRMED` jednoho Agenta), `BR-04`, `BR-06`, OP-01 / `REQ-01`–`REQ-04` |
+| Architektura | [ADR-001](c03/adr/ADR-001-reservation-lifecycle-owner.md) — jediný vlastník životního cyklu `src/lib/reservation-service.ts`, pravidla v `src/lib/reservation-policy.ts` ([C05 DD](c05/detailed-design.md)) |
+| DB schéma | `prisma/schema.prisma` (sha256 `46694d5b…`), 3 migrace, poslední `20261003131709_c02_authentication`; SQLite přes `@prisma/adapter-better-sqlite3` |
+| Runtime | Node.js 22 (lokálně v22.21.1 / npm 10.9.4 na Linuxu; CI `ubuntu-latest` + `actions/setup-node` 22), Next.js 16.3.5, React 19.2.8, Prisma 7.10.0, better-sqlite3 12.11.1 |
+| Zámek závislostí | `package-lock.json` (sha256 `6cf8b8d8…`), instalace `npm ci` |
+| Testovací konfigurace | izolovaná DB `DATABASE_URL="file:./test.db"` (soubor se před během smaže), žádné tajné hodnoty; demo Admin ze seedu (`README.md`) |
+| Příprava dat | `npm run db:deploy && npm run db:seed` (4 Agenti, demo Admin); fixtury test cases vytváří vlastní Agenty a Usery a po běhu je mažou |
+| Známé testy na baseline | `test:c05` (20 unit), `test:c02` (31 E2E), `test:architecture`, `test:api-persistence` |
+
+Obnovení stejného výchozího stavu jiným členem:
+
+```bash
+git checkout c08-baseline
+npm ci
+rm -f test.db
+DATABASE_URL="file:./test.db" npm run db:deploy
+DATABASE_URL="file:./test.db" npm run db:seed
+DATABASE_URL="file:./test.db" npm run build
+DATABASE_URL="file:./test.db" npm start            # terminál 1
+DATABASE_URL="file:./test.db" npm run test:c08     # terminál 2 (skript přidán v C08, viz níže)
+```
+
+Testovací skript `scripts/c08-baseline-tests.ts` (+ helpery `scripts/lib/`) vznikl v
+C08 a nemění produkt: `git diff c08-baseline <C08 commit> -- src prisma` je prázdný.
+Pro běh se do pracovní kopie baseline přenáší jen adresář `scripts/`.
+
+### Krok 2 — stepwise test cases (Expected napsáno před během)
+
+Společné: Agent R1 je exkluzivní (`capacity = 1`, `requiresApproval = false`), všechny
+časy jsou UTC instanty dne 2035-03-12 (vždy v budoucnosti, `BR-06`), intervaly
+polouzavřené `[start,end)`. Dva intervaly se překrývají právě když
+`a.start < b.end && b.start < a.end`. Oracle čte committed řádky z tabulky
+`Reservation` raw SQL dotazem v testovacím procesu (`scripts/lib/db-oracle.ts`),
+tedy přes jiné DB spojení než server, a podmínku překryvu přepisuje samostatně, bez
+volání aplikační policy.
+
+#### C08 / TC-C08-01 — sousední Create zachovává BR-02
+
+- **Test basis:** `BR-01`, `BR-02`, OP-01 `REQ-01`–`REQ-03` @ v0.2.1; riziko C04 `QC-04`.
+- **Baseline:** `c08-baseline` (`61b4b4c`), schéma `20261003131709_c02_authentication`, Node 22, `next build` + `next start`, příkaz `npm run test:c08`.
+- **Preconditions:** běžící aplikace nad izolovanou `test.db` po `db:deploy` + `db:seed`; User U1 (vlastník B1) a User U2 (žadatel) registrovaní přes `/api/auth/register`, oba s výchozím limitem `maxReservations = 3` a bez jiných Reservation.
+- **Test data:** B1 = `CONFIRMED` R1 `[2035-03-12T10:00Z, 11:00Z)` (fixtura); B2 = požadavek U2 na R1 `[11:00Z, 12:00Z)`.
+
+| # | Action / input | Expected BEFORE execution | Actual AFTER execution | Evidence |
+|---|---|---|---|---|
+| 1 | Smazat Reservation R1, vložit B1 `CONFIRMED` | fixtura uložena | *doplnit po běhu* | |
+| 2 | Nezávisle přečíst uložené řádky R1 | právě 1 řádek: `CONFIRMED [10:00,11:00)` | *doplnit po běhu* | |
+| 3 | `POST /api/reservations` B2 `[11:00,12:00)` se Session U2 | `201`, `status = CONFIRMED` (sousední intervaly se nepřekrývají) | *doplnit po běhu* | |
+| 4 | Znovu přečíst committed stav R1 | 2 řádky, oba `CONFIRMED` `[10:00,11:00)` a `[11:00,12:00)`; uložené B2 má vrácené id; 0 překrývajících se `CONFIRMED` dvojic | *doplnit po běhu* | |
+| 5 | Reset a zopakovat kroky 1–4, nakonec smazat data R1 | stejný výsledek; R1 bez řádků | *doplnit po běhu* | |
+
+- **Final postcondition / oracle:** v DB 2× `CONFIRMED` pro R1, `confirmedOverlapPairs(R1) = 0`.
+- **Verdict:** *NOT RUN — doplnit po běhu.*
+
+#### C08 / TC-C08-02 — překrývající se Create je odmítnut (BR-02)
+
+- **Test basis:** `BR-02`, OP-01 `REQ-03`, alternativní výsledek „overlap → reject, no Reservation created“ @ v0.2.1.
+- **Baseline / preconditions:** stejné jako TC-C08-01.
+- **Test data:** B1 = `CONFIRMED` R1 `[10:00Z, 11:00Z)`; B2 = požadavek U2 na R1 `[10:30Z, 11:30Z)`. Konkrétní HTTP kód je dán přijatým kontraktem C05 (`AGENT_UNAVAILABLE` → `409`).
+
+| # | Action / input | Expected BEFORE execution | Actual AFTER execution | Evidence |
+|---|---|---|---|---|
+| 1 | Smazat Reservation R1, vložit B1 `CONFIRMED` | fixtura uložena | *doplnit po běhu* | |
+| 2 | Nezávisle přečíst výchozí stav | právě 1 řádek: B1 `CONFIRMED [10:00,11:00)` | *doplnit po běhu* | |
+| 3 | `POST /api/reservations` B2 `[10:30,11:30)` se Session U2 | `409`, `code = AGENT_UNAVAILABLE`, žádné `id` | *doplnit po běhu* | |
+| 4 | Přečíst committed stav po odmítnutí | B1 beze změny `CONFIRMED [10:00,11:00)`; R1 má stále právě 1 řádek (B2 neuložen); 0 překrývajících se dvojic | *doplnit po běhu* | |
+| 5 | Reset a zopakovat kroky 1–4, nakonec smazat data R1 | reprodukovatelný stejný výsledek | *doplnit po běhu* | |
+
+- **Final postcondition / oracle:** R1 obsahuje jen B1, `confirmedOverlapPairs(R1) = 0`.
+- **Verdict:** *NOT RUN — doplnit po běhu.*
+
+**Co tyto případy nepokrývají:** souběžné konfliktní Create (pokrývá C02 scénář
+„OP-03 allows at most one concurrent conflicting Create“ a C04 `QC-01`), cestu
+Approve (C02 OP-05 scénáře) a Agenty s kapacitou > 1 (v systému neexistují,
+`capacity = 1`).
