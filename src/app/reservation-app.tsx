@@ -7,6 +7,11 @@ import StatusBadge, { reservationStatuses, type ReservationStatus } from "@/comp
 import { formatDay, formatRange, formatTime } from "@/lib/format";
 import { MAX_DURATION_MINUTES, SLOT_MINUTES } from "@/lib/reservation-policy";
 
+// BR-07 hint for the browser: `step` counts from `min`. Without `min` the browser counts from
+// the `value` attribute, which React keeps equal to the current value, so no step mismatch
+// would ever be reported. The server remains the authority (assertSlotGranularity).
+const SLOT_GRID_BASE = "2000-01-01T00:00";
+
 interface Agent {
   id: string;
   name: string;
@@ -317,8 +322,8 @@ export default function ReservationApp({ user }: { user: SessionUser | null }) {
                   </select>
                 </label>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="field-label">Začátek<input required type="datetime-local" step={SLOT_MINUTES * 60} value={startTime} onChange={(event) => setStartTime(event.target.value)} className="field" /></label>
-                  <label className="field-label">Konec<input required type="datetime-local" step={SLOT_MINUTES * 60} value={endTime} onChange={(event) => setEndTime(event.target.value)} className="field" /></label>
+                  <label className="field-label">Začátek<input required type="datetime-local" min={SLOT_GRID_BASE} step={SLOT_MINUTES * 60} value={startTime} onChange={(event) => setStartTime(event.target.value)} className="field" /></label>
+                  <label className="field-label">Konec<input required type="datetime-local" min={SLOT_GRID_BASE} step={SLOT_MINUTES * 60} value={endTime} onChange={(event) => setEndTime(event.target.value)} className="field" /></label>
                   <p className="text-xs text-ink-muted sm:col-span-2">Rezervace začíná a končí na celé čtvrthodině a trvá nejvýše {MAX_DURATION_MINUTES / 60} hodiny.</p>
                 </div>
                 <label className="field-label">Poznámka (volitelné)<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} className="field resize-none" /></label>
