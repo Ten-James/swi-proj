@@ -3,11 +3,29 @@
 Implementace specifikace C02 pro rezervaci výpočetního času AI agentů. Aplikace
 používá Next.js, Prisma a SQLite.
 
+## Požadavky
+
+- Node.js 22 (`.nvmrc`, `engines` v `package.json`; CI používá stejnou verzi) a npm 10+;
+- git; jiný software ani databázový server není potřeba (SQLite soubor);
+- žádné tajné hodnoty: jediná konfigurace je `DATABASE_URL` (výchozí `file:./dev.db`).
+
 ## Spuštění
+
+Linux / macOS (bash):
+
+```bash
+cp .env.example .env     # volitelné; výchozí DATABASE_URL je file:./dev.db
+npm ci                   # přesně podle package-lock.json, spustí i prisma generate
+npm run db:deploy
+npm run db:seed
+npm run dev
+```
+
+Windows (PowerShell):
 
 ```powershell
 copy .env.example .env   # volitelné; výchozí DATABASE_URL je file:./dev.db
-npm install
+npm ci
 npm run db:deploy
 npm run db:seed
 npm run dev
@@ -37,9 +55,26 @@ Mutace Reservation odvozují Usera nebo Admina z databázové Session uložené 
 uživatelské Reservation vrací `/api/reservations/mine` a Admin přehled
 `/api/admin/reservations`.
 
+## Ověření jedním příkazem (C09)
+
+```bash
+npm ci
+npm run verify
+```
+
+`verify` spustí lint, typecheck, unit testy (`test:c05`), architektonické pravidlo,
+smaže a znovu připraví izolovanou databázi `verify.db` (nikdy `dev.db`), sestaví
+produkční build, spustí `next start` na portu 3100 a proti němu pustí všechny HTTP + DB
+sady (`test:api-persistence`, `test:c02`, `test:c08`, `test:cr08`). Nakonec zapíše
+manifest release candidate. Výstupy jsou v adresáři `release/` (`verify.log`,
+`server.log`, `verify-results.json`, `manifest.json`), exit code je 0 jen při úspěchu
+všech kroků. Stejný příkaz spouští CI při každém push/PR. Volitelné proměnné:
+`VERIFY_DATABASE_URL` (výchozí `file:./verify.db`) a `VERIFY_PORT` (výchozí `3100`).
+
 ## Ověření C02
 
-Při spuštěné aplikaci v jiném terminálu:
+Jednotlivé HTTP sady lze pustit i ručně proti běžící aplikaci (`npm run build && npm start`
+nebo `npm run dev`) v jiném terminálu se stejnou `DATABASE_URL`:
 
 ```powershell
 npm run test:c02
@@ -57,8 +92,9 @@ npm run build
 ```
 
 `test:c05` spouští unit testy odvozené z C05 detailního návrhu a nepotřebuje
-databázi ani běžící aplikaci. E2E skripty berou adresu aplikace z `API_URL`
-(výchozí `http://localhost:3000`). CI spouští všechny kontroly včetně `test:c02`.
+databázi ani běžící aplikaci. E2E skripty (`test:api-persistence`, `test:c02`,
+`test:c08`, `test:cr08`) potřebují běžící aplikaci a berou její adresu z `API_URL`
+(výchozí `http://localhost:3000`). CI spouští všechny kontroly přes `npm run verify`.
 
 Úplná specifikace je v [docs/specification.md](docs/specification.md), plán testů
 v [docs/verification-plan.md](docs/verification-plan.md) a zaznamenané výsledky
@@ -104,3 +140,19 @@ Regresní test cases TC-C08-01/02 (běžící aplikace na `API_URL`, stejná
 ```bash
 npm run test:c08
 ```
+
+## C09 — Integration, CI and release
+
+Implementace CR-08 (`BR-07` / `REQ-13`, Specification v0.3): nová Reservation musí
+začínat i končit na 15minutové mřížce v UTC a trvat nejvýše 4 hodiny, jinak
+`POST /api/reservations` vrátí `400` s kódem `NOT_SLOT_ALIGNED` nebo
+`DURATION_EXCEEDED`. Starší uložené Reservation se znovu nevalidují.
+
+```bash
+npm run test:cr08          # TC-CR08-01 … 06 (běžící aplikace, HTTP + nezávislé čtení DB)
+npm run verify             # celá pipeline + release/manifest.json
+npm run release:manifest   # jen manifest (po npm run build)
+```
+
+Release záznam (before/after, testy, CI, clean checkout, artefakt, rollback a
+rozhodnutí o RC): [docs/evidence-and-evolution.md](docs/evidence-and-evolution.md#c09--integration-ci-and-release-record).

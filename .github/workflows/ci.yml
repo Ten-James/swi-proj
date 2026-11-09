@@ -5,11 +5,11 @@ on:
   pull_request:
 
 jobs:
-  api-persistence-test:
+  verify:
+    # Same single command as locally (README, C09): lint, typecheck, unit and architecture
+    # checks, isolated SQLite, production build, real HTTP + DB integration suites
+    # (C01, C02, C08, CR-08) and the release candidate manifest.
     runs-on: ubuntu-latest
-
-    env:
-      DATABASE_URL: "file:./test.db"
 
     steps:
       - name: Checkout repository
@@ -18,53 +18,23 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
-      - name: Install dependencies
+      - name: Install dependencies (lockfile)
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Verify (build + all checks)
+        run: npm run verify
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: C05 unit tests
-        run: npm run test:c05
-
-      - name: C03 architecture check
-        run: npm run test:architecture
-
-      - name: Prepare database
-        run: |
-          npm run db:deploy
-          npm run db:seed
-
-      - name: Build application
-        run: npm run build
-
-      - name: Start application
-        run: npm start > server.log 2>&1 &
-
-      - name: Wait for application
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:3000/api/agents > /dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 1
-          done
-
-          echo "Application failed to start"
-          cat server.log
-          exit 1
-
-      - name: Run API persistence spike
-        run: npm run test:api-persistence
-
-      - name: Run C02 behaviour verification
-        run: npm run test:c02
-
-      - name: Run C08 baseline regression test cases
-        run: npm run test:c08
+      - name: Upload verification logs and release candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-${{ github.sha }}
+          path: |
+            release/
+            .next/
+            !.next/cache/
+          include-hidden-files: true
+          if-no-files-found: warn

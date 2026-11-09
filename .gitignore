@@ -49,3 +49,6 @@ next-env.d.ts
 
 # local environment (copy .env.example)
 .env
+
+# C09 verify / release candidate output
+/release

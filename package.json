@@ -1,7 +1,10 @@
 {
   "name": "swi-proj",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,7 +23,9 @@
     "test:architecture": "tsx scripts/architecture-check.ts",
     "test:c05": "tsx scripts/c05-unit-tests.ts",
     "test:c08": "tsx scripts/c08-baseline-tests.ts",
-    "test:cr08": "tsx scripts/cr08-acceptance-tests.ts"
+    "test:cr08": "tsx scripts/cr08-acceptance-tests.ts",
+    "verify": "tsx scripts/verify.ts",
+    "release:manifest": "tsx scripts/release-manifest.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
