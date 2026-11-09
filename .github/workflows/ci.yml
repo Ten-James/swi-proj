@@ -36,5 +36,6 @@ jobs:
             release/
             .next/
             !.next/cache/
+            !.next/node_modules/
           include-hidden-files: true
           if-no-files-found: warn

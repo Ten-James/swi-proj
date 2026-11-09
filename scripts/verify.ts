@@ -13,8 +13,8 @@
  *   VERIFY_PORT          port for the production server, default 3100
  * Logs and results are written to ./release (git-ignored).
  */
-import { spawn, type ChildProcess } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -94,7 +94,20 @@ function resetDatabase(): Promise<number> {
 
 let server: ChildProcess | null = null;
 
+async function portAnswers(): Promise<boolean> {
+  try {
+    await fetch(`${apiUrl}/api/agents`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function startServer(): Promise<number> {
+  if (await portAnswers()) {
+    write(`Something already answers on ${apiUrl}; stop it or set VERIFY_PORT (tests must hit this build)\n`);
+    return 1;
+  }
   const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
   const serverLog = createWriteStream(path.join(releaseDir, "server.log"));
   server = spawn(process.execPath, [nextBin, "start", "-p", port], { cwd: root, env });
@@ -159,6 +172,19 @@ const pipeline: Array<[string, string, () => Promise<number>]> = [
   ["stop production server", "kill", stopServer],
 ];
 
+function currentCommit() {
+  try {
+    return execSync("git rev-parse HEAD", { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return null;
+  }
+}
+
+function currentBuildId() {
+  const file = path.join(root, ".next", "BUILD_ID");
+  return existsSync(file) ? readFileSync(file, "utf8").trim() : null;
+}
+
 function saveResults(verdict: "PASS" | "FAIL") {
   const done = new Set(results.map((result) => result.step));
   const all = [
@@ -169,7 +195,7 @@ function saveResults(verdict: "PASS" | "FAIL") {
   ];
   writeFileSync(
     path.join(releaseDir, "verify-results.json"),
-    `${JSON.stringify({ verdict, finishedAt: new Date().toISOString(), databaseUrl, apiUrl, steps: all }, null, 2)}\n`,
+    `${JSON.stringify({ verdict, commit: currentCommit(), buildId: currentBuildId(), finishedAt: new Date().toISOString(), databaseUrl, apiUrl, steps: all }, null, 2)}\n`,
   );
   return all;
 }

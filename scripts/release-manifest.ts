@@ -19,7 +19,8 @@ import path from "node:path";
 const root = process.cwd();
 const releaseDir = path.join(root, "release");
 const buildDir = path.join(root, ".next");
-const EXCLUDED_BUILD_ENTRIES = new Set(["cache", "trace", "trace-build", "diagnostics"]);
+// node_modules holds symlinks to native packages that CI does not upload as part of the artefact.
+const EXCLUDED_BUILD_ENTRIES = new Set(["cache", "trace", "trace-build", "diagnostics", "node_modules"]);
 
 function sha256(data: Buffer | string) {
   return createHash("sha256").update(data).digest("hex");
@@ -59,7 +60,6 @@ function buildIdentity() {
   const lines = files.map((relative) => {
     const full = path.join(buildDir, relative);
     const stat = lstatSync(full);
-    // Symlinks (Next.js links native modules into .next/node_modules) are hashed by target.
     const content = stat.isSymbolicLink() ? Buffer.from(`symlink:${readlinkSync(full)}`) : readFileSync(full);
     bytes += content.length;
     return `${sha256(content)}  ${relative}`;
@@ -67,7 +67,7 @@ function buildIdentity() {
   return {
     buildId: readFileSync(path.join(buildDir, "BUILD_ID"), "utf8").trim(),
     digest: sha256(lines.join("\n")),
-    digestScope: ".next/** excluding cache, trace, trace-build, diagnostics",
+    digestScope: ".next/** excluding cache, trace, trace-build, diagnostics, node_modules (links to installed packages)",
     files: files.length,
     bytes,
   };
@@ -99,21 +99,29 @@ function configuration() {
   };
 }
 
-function lastVerify() {
+/** Embeds the last verify run only when it belongs to this commit and this build. */
+function lastVerify(commit: string | null, buildId: string | null) {
   const file = path.join(releaseDir, "verify-results.json");
-  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
+  if (!existsSync(file)) return null;
+  const results = JSON.parse(readFileSync(file, "utf8")) as { commit?: string | null; buildId?: string | null; verdict?: string };
+  if (results.commit !== commit || results.buildId !== buildId) {
+    return { verdict: "STALE", reason: `results belong to commit ${results.commit ?? "?"} / build ${results.buildId ?? "?"}` };
+  }
+  return results;
 }
 
 function main() {
   const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { name: string; version: string };
   const status = git("status --porcelain --untracked-files=no");
   const migrationList = migrations();
+  const commit = git("rev-parse HEAD");
+  const build = buildIdentity();
   const manifest = {
     product: pkg.name,
     version: pkg.version,
     generatedAt: new Date().toISOString(),
     source: {
-      commit: git("rev-parse HEAD"),
+      commit,
       dirty: status === null ? null : status.length > 0,
       tags: git("tag --points-at HEAD")?.split("\n").filter(Boolean) ?? [],
       branch: git("rev-parse --abbrev-ref HEAD"),
@@ -135,8 +143,8 @@ function main() {
       apply: "npm run db:deploy",
     },
     configuration: configuration(),
-    build: buildIdentity(),
-    verification: lastVerify(),
+    build,
+    verification: lastVerify(commit, build?.buildId ?? null),
   };
 
   mkdirSync(releaseDir, { recursive: true });
