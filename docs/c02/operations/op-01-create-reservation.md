@@ -84,6 +84,9 @@ V každém případě nevznikne žádná rezervace:
 - neplatné JSON nebo chybějící `agentId`, `startTime`, `endTime` → odmítnuto (400);
 - neplatné datum, čas bez offsetu/`Z` nebo `start >= end` → odmítnuto (400);
 - `startTime <= currentTime` (`BR-06`, v0.2.1) → odmítnuto (400, `START_IN_PAST`);
+- interval mimo 15minutovou mřížku v UTC (`BR-07`, v0.3) → odmítnuto (400,
+  `NOT_SLOT_ALIGNED`); délka nad 4 h → odmítnuto (400, `DURATION_EXCEEDED`);
+  kontroluje se až po `BR-06` a před dotazy do DB;
 - poznámka delší než 500 znaků → odmítnuto (400);
 - agent neexistuje nebo je neaktivní → odmítnuto (404);
 - interval se překrývá s rezervací `CONFIRMED` téhož agenta → odmítnuto (409);
