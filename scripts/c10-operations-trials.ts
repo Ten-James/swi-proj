@@ -168,6 +168,10 @@ async function main() {
     const created = await scope.createReservation(owner.cookie, { agentId: agent.id, startTime: day(10), endTime: day(11) });
     note("S1", "POST /api/reservations [10:00,11:00)", `${created.status} ${JSON.stringify(created.body)}`);
     const b1 = String(created.body.id);
+    // S2 precondition, made while B1 is still pending: PENDING does not block (BR-02 counts CONFIRMED only).
+    const pending = await scope.createReservation(second.cookie, { agentId: agent.id, startTime: day(10, 30), endTime: day(11, 30) });
+    note("S2", "precondition: POST /api/reservations B2 [10:30,11:30) while B1 is pending", `${pending.status} ${JSON.stringify(pending.body)}`);
+    const b2 = String(pending.body.id);
     const approved = await scope.decide(b1, "APPROVE", admin);
     note("S1", "PATCH decision APPROVE", `${approved.status} ${JSON.stringify(approved.body)}`);
     s1.actual.push(`Create ${created.status} ${String(created.body.status)}`, `APPROVE ${approved.status} ${String(approved.body.status)}`);
@@ -183,21 +187,24 @@ async function main() {
     // S2 — rejected conflict
     const s2: Situation = {
       id: "S2", title: "Zamítnutá kolize",
-      expected: "B2 [10:30,11:30) → 201 PENDING_APPROVAL; APPROVE B2 → 409 AGENT_UNAVAILABLE; DB: B2 PENDING_APPROVAL, B1 CONFIRMED beze změny, 0 překryvů; doménové zamítnutí není technická chyba",
+      expected: "B2 [10:30,11:30) vznikla jako PENDING_APPROVAL ještě před potvrzením B1; APPROVE B2 → 409 AGENT_UNAVAILABLE; nový Create [10:30,11:30) → 409 AGENT_UNAVAILABLE; DB: B2 PENDING_APPROVAL, B1 CONFIRMED beze změny, žádný nový řádek, 0 překryvů; doménové zamítnutí není technická chyba",
       actual: [], verified: [], logs: "", pass: true,
     };
     from = logSize(log1);
-    const pending = await scope.createReservation(second.cookie, { agentId: agent.id, startTime: day(10, 30), endTime: day(11, 30) });
-    note("S2", "POST /api/reservations [10:30,11:30)", `${pending.status} ${JSON.stringify(pending.body)}`);
-    const b2 = String(pending.body.id);
+    const rowsBeforeS2 = (await readAgentReservations(agent.id)).length;
     const rejected = await scope.decide(b2, "APPROVE", admin);
-    note("S2", "PATCH decision APPROVE (overlaps B1)", `${rejected.status} ${JSON.stringify(rejected.body)}`);
-    s2.actual.push(`Create ${pending.status} ${String(pending.body.status)}`, `APPROVE ${rejected.status} ${String(rejected.body.code)}`);
+    note("S2", "PATCH decision APPROVE B2 (overlaps confirmed B1)", `${rejected.status} ${JSON.stringify(rejected.body)}`);
+    const overlapCreate = await scope.createReservation(second.cookie, { agentId: agent.id, startTime: day(10, 30), endTime: day(11, 30) });
+    note("S2", "POST /api/reservations [10:30,11:30) (overlaps confirmed B1)", `${overlapCreate.status} ${JSON.stringify(overlapCreate.body)}`);
+    s2.actual.push(`B2 ${pending.status} ${String(pending.body.status)}`, `APPROVE B2 ${rejected.status} ${String(rejected.body.code)}`, `Create ${overlapCreate.status} ${String(overlapCreate.body.code)}`);
     const storedB2 = await readReservation(b2);
     const storedB1After = await readReservation(b1);
     const pairs2 = await confirmedOverlapPairs(agent.id);
     s2.pass = check(s2.verified, pending.status === 201 && pending.body.status === "PENDING_APPROVAL", "B2 vytvořena jako PENDING_APPROVAL") && s2.pass;
     s2.pass = check(s2.verified, rejected.status === 409 && rejected.body.code === "AGENT_UNAVAILABLE", "APPROVE B2 zamítnut 409 AGENT_UNAVAILABLE") && s2.pass;
+    s2.pass = check(s2.verified, overlapCreate.status === 409 && overlapCreate.body.code === "AGENT_UNAVAILABLE", "překrývající Create zamítnut 409 AGENT_UNAVAILABLE") && s2.pass;
+    const rowsAfterS2 = (await readAgentReservations(agent.id)).length;
+    s2.pass = check(s2.verified, rowsAfterS2 === rowsBeforeS2, `DB: počet řádků Agenta ${rowsAfterS2} (před ${rowsBeforeS2}) — zamítnutý Create nic neuložil`) && s2.pass;
     s2.pass = check(s2.verified, storedB2?.status === "PENDING_APPROVAL", `DB B2: ${describe(storedB2)}`) && s2.pass;
     s2.pass = check(s2.verified, storedB1After?.status === "CONFIRMED", `DB B1: ${describe(storedB1After)}`) && s2.pass;
     s2.pass = check(s2.verified, pairs2.length === 0, `překrývající se CONFIRMED dvojice: ${pairs2.length}`) && s2.pass;
