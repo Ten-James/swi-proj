@@ -24,6 +24,7 @@
     "test:c05": "tsx scripts/c05-unit-tests.ts",
     "test:c08": "tsx scripts/c08-baseline-tests.ts",
     "test:cr08": "tsx scripts/cr08-acceptance-tests.ts",
+    "trial:c10": "tsx scripts/c10-operations-trials.ts",
     "verify": "tsx scripts/verify.ts",
     "release:manifest": "tsx scripts/release-manifest.ts"
   },
