@@ -5,7 +5,8 @@
  *
  * Runs static checks and unit tests, prepares an isolated SQLite database, builds the
  * production bundle, starts `next start` as a child process and runs every HTTP + DB
- * integration suite against it. It finishes by writing the release candidate manifest.
+ * integration suite against it, then the C10 operational trials (outage, restart, log
+ * contract) on their own server. It finishes by writing the release candidate manifest.
  * Fail-fast: the first failing step stops the pipeline and the exit code is 1.
  *
  * Environment (all optional, no secrets):
@@ -127,6 +128,7 @@ const pipeline: Array<[string, string, () => Promise<number>]> = [
   ["baseline regression TC-C08-01/02", "npm run test:c08", npm("test:c08")],
   ["CR-08 acceptance TC-CR08-01..06", "npm run test:cr08", npm("test:cr08")],
   ["stop production server", "kill", stopServer],
+  ["operational trials C10 (own server and c10.db)", "npm run trial:c10", npm("trial:c10")],
 ];
 
 function currentCommit() {
