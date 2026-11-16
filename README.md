@@ -89,10 +89,24 @@ Kontrola hlídá, že změny životního cyklu Reservation zapisuje pouze
 `src/lib/reservation-service.ts` a že tento vlastník používá explicitní databázové
 transakce.
 
-
 ## C04 — kvalita a měření
 
 Quality concern je integrita dat pod souběhem (`BR-02`, `BR-04`, `REQ-07`,
 `REQ-10`). Kritéria QC-01 až QC-04, podmínky měření, výsledky a rozhodnutí jsou v
 [docs/c04/quality-and-measurement.md](docs/c04/quality-and-measurement.md).
 Měření je součástí `npm run test:c02` (scénáře `C04 QC-01`, `QC-03`, `QC-04`).
+
+## C08 — Controlled Change
+
+Change Request CR-08 (časová granularita a maximální délka Reservation) je
+analyzován v [docs/intent-and-change.md](docs/intent-and-change.md#c08--cr-08--controlled-change-card)
+(Change Card, Impact Matrix, Options Matrix, rozhodnutí a předávka do C09). Before
+baseline je tag `c08-baseline` a krokové test cases s výsledky jsou v
+[docs/evidence-and-evolution.md](docs/evidence-and-evolution.md#c08--controlled-change-evidence).
+
+Regresní test cases TC-C08-01/02 (běžící aplikace na `API_URL`, stejná
+`DATABASE_URL` jako server):
+
+```bash
+npm run test:c08
+```
