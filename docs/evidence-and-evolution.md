@@ -606,7 +606,14 @@ npm run db:deploy && npm run db:seed && npm start   # ruční spuštění (port 
 | `abeb5d7` | [42648578259](https://github.com/Ten-James/swi-proj/actions/runs/42648578259) | **success** | `release-candidate-abeb5d7…` (2 850 657 B, digest `sha256:908f39ed…`) |
 
 Lokálně (Linux, Node v22.21.1): `npm run verify` na `da78481` → **verify PASS**,
-14/14 kroků, exit 0. Negativní kontrola pipeline: `VERIFY_DATABASE_URL=file:./dev.db`
+14/14 kroků, exit 0.
+
+**Po sloučení s `main` (2026-11-16):** `origin/main` (`66726a0`, C04 měření a
+schválení baseline) sloučen do `c08-controlled-change` (`1b256aa`) a ta do této větve
+(`b27d03e`). Konflikty byly jen v dokumentaci. `npm run verify` na `b27d03e` →
+**verify PASS**, C02 **34/34** (31 + C04 `QC-01`, `QC-03`, `QC-04`; scénáře používají
+zarovnané intervaly, `BR-07` je neovlivní), TC-C08-01/02 a TC-CR08-01…06 PASS. Produktový
+kód se sloučením nezměnil: `git diff abeb5d7 b27d03e -- src prisma` je prázdný. Negativní kontrola pipeline: `VERIFY_DATABASE_URL=file:./dev.db`
 → krok „reset isolated database“ FAIL, ostatní NOT RUN, exit 1 (fail-fast a ochrana
 `dev.db` fungují).
 
