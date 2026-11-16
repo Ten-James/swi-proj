@@ -1,6 +1,7 @@
-# Agent Reservations — pitch deck
+# Agent Reservations — CP1 deck
 
-Product and architecture pitch for the AI Agent Reservation System, built with
+CP1 deck for the AI Agent Reservation System following the C07–C08 assignment
+(`input/SWI_C07_C08_Assignment_CZ_EN_FINAL.html`), built with
 [react-slides](https://ten-james.github.io/react-slides/).
 
 The deck is in Czech. Terms without a natural Czech equivalent stay in English
@@ -31,7 +32,8 @@ npx vite preview --base /~ind0040/ --port 4173   # served at /~ind0040/
 `npm run pdf` drives the system Chrome (`CHROME_PATH`, default
 `/usr/bin/google-chrome`) and prints one vector page per slide with all builds
 revealed; the code slide gets two pages (`planDecision`, `assertCanConfirm`).
-`agent-reservations.pdf` is committed as a ready-made handout.
+`agent-reservations.pdf` is committed as a ready-made handout; regenerate it after
+changing the deck.
 
 Keys: `→` / `Space` next step, `←` previous, `Esc` overview. The URL hash tracks
 the current slide.
@@ -40,23 +42,31 @@ the current slide.
 
 | Path | Content |
 |---|---|
-| `src/slides.tsx` | The deck: 27 slides, speaker notes on each |
-| `src/diagrams.tsx` | Stepped SVG diagrams (allocation premise, intervals, lifecycle, architecture, AS-IS → TO-BE) |
+| `src/slides.tsx` | The deck: 23 slides, speaker notes on each; baselines, risks and actions are constants at the top |
+| `src/diagrams.tsx` | Stepped SVG diagrams (intervals, lifecycle, static architecture, AS-IS → TO-BE, Approve sequence) |
 | `src/ui.tsx` | Slide frame, footer, status pills, browser-framed screenshots |
 | `src/theme.css` | Typography, palette (status colors match the app) |
 | `public/screenshots/` | Real screenshots of the running app (seeded demo data) |
-| `public/images/` | Use-case diagrams v0.1 / v0.2 and the outage sketch from `docs/` |
 
 ## Sections
 
-1. **Product** — time-based allocation premise, app tour, six guarantees (BR-01…05, AR-01), half-open
-   intervals, v0.2 lifecycle, the late-approval conflict shown in the real UI.
-2. **Architecture** — scope evolution, drivers, alternatives A/B, comparison,
-   static architecture, AS-IS → TO-BE ownership, runtime and stack.
-3. **Detailed design** — pure `reservation-policy`, rule codes → HTTP.
-4. **Evidence** — test results, C01 → C05 timeline, risks and roadmap.
-5. **Review (C06)** — scorecard from the reviewing team and a decision on each
-   finding (F1–F3).
+**A · Technical Design Review** (8–10 min) — one argument line around BR-02:
+
+1. **Scope & accepted behavior** — domain, roles, system boundary, OP-01 Create
+   pre/postconditions, BR-02 verification example, v0.2 approval lifecycle.
+2. **Architecture** — driver and owners, alternatives + ADR-001, static view,
+   AS-IS → TO-BE, Approve sequence (dynamic view).
+3. **Detailed Design** — `planDecision` / `assertCanConfirm` contract, branches → tests.
+4. **Verification & Evidence** — positive, boundary and concurrent case
+   (expected vs observed), C04 quality criterion.
+5. **C06 Findings** — scorecard, disposition of F1–F3, F1 in detail.
+
+**C · Project Status Report** (5–7 min) — the six slides of the template:
+Executive Status, Scope & Delivery, Schedule & Resources, Top Risks & Issues,
+Next Action Plan, Decision & Outlook.
+
+`STATUS_AS_OF` in `src/slides.tsx` is the date and commit both parts report
+against.
 
 ## Notes on react-slides 0.1.0
 
