@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api-error";
+import { logTechnicalFailure } from "@/lib/ops-log";
 import { ReservationRuleViolation, type ReservationRuleCode } from "@/lib/reservation-policy";
 
 const ruleViolationStatus: Record<ReservationRuleCode, number> = {
@@ -14,7 +15,12 @@ const ruleViolationStatus: Record<ReservationRuleCode, number> = {
   AGENT_UNAVAILABLE: 409,
 };
 
-export function apiErrorResponse(error: unknown) {
+/**
+ * Maps an error to the HTTP response. Domain rejections and client errors are answered
+ * without logging; anything else is a technical failure and leaves one diagnostic event.
+ * `operation` names the route, e.g. "POST /api/reservations".
+ */
+export function apiErrorResponse(error: unknown, operation: string) {
   if (error instanceof ApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
@@ -24,6 +30,6 @@ export function apiErrorResponse(error: unknown) {
       { status: ruleViolationStatus[error.code] },
     );
   }
-  console.error(error);
+  logTechnicalFailure(operation, error, "HTTP 500 Internal server error");
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

@@ -25,6 +25,6 @@ export async function GET(request: Request) {
     const availability = await checkAgentAvailability(agentId, interval.startTime, interval.endTime);
     return NextResponse.json({ agentId, availability });
   } catch (error) {
-    return apiErrorResponse(error);
+    return apiErrorResponse(error, "GET /api/availability");
   }
 }

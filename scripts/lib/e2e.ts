@@ -11,7 +11,7 @@ import { execSync } from "node:child_process";
 import { prisma } from "../../src/lib/prisma";
 
 export const API_URL = process.env.API_URL ?? "http://localhost:3000";
-const TEST_PASSWORD = "C08Test123!";
+export const TEST_PASSWORD = "C08Test123!";
 
 export interface ApiResult {
   status: number;

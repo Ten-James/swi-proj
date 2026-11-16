@@ -5,7 +5,8 @@
  *
  * Runs static checks and unit tests, prepares an isolated SQLite database, builds the
  * production bundle, starts `next start` as a child process and runs every HTTP + DB
- * integration suite against it. It finishes by writing the release candidate manifest.
+ * integration suite against it, then the C10 operational trials (outage, restart, log
+ * contract) on their own server. It finishes by writing the release candidate manifest.
  * Fail-fast: the first failing step stops the pipeline and the exit code is 1.
  *
  * Environment (all optional, no secrets):
@@ -13,9 +14,10 @@
  *   VERIFY_PORT          port for the production server, default 3100
  * Logs and results are written to ./release (git-ignored).
  */
-import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { startNextServer, type ManagedServer } from "./lib/server";
 
 const root = process.cwd();
 const releaseDir = path.join(root, "release");
@@ -92,67 +94,23 @@ function resetDatabase(): Promise<number> {
   return Promise.resolve(0);
 }
 
-let server: ChildProcess | null = null;
-
-async function portAnswers(): Promise<boolean> {
-  try {
-    await fetch(`${apiUrl}/api/agents`);
-    return true;
-  } catch {
-    return false;
-  }
-}
+let server: ManagedServer | null = null;
 
 async function startServer(): Promise<number> {
-  if (await portAnswers()) {
-    write(`Something already answers on ${apiUrl}; stop it or set VERIFY_PORT (tests must hit this build)\n`);
-    return 1;
-  }
-  const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
-  const serverLog = createWriteStream(path.join(releaseDir, "server.log"));
-  server = spawn(process.execPath, [nextBin, "start", "-p", port], { cwd: root, env });
-  server.stdout?.pipe(serverLog);
-  server.stderr?.pipe(serverLog);
-  let exited = false;
-  server.on("exit", () => {
-    exited = true;
+  server = await startNextServer({
+    port,
+    env,
+    logFile: path.join(releaseDir, "server.log"),
+    say: (line) => write(`${line}\n`),
   });
-
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (exited) {
-      write("Server exited before it became ready; see release/server.log\n");
-      return 1;
-    }
-    try {
-      const response = await fetch(`${apiUrl}/api/agents`);
-      if (response.ok) {
-        write(`Server ready at ${apiUrl} (pid ${server.pid})\n`);
-        return 0;
-      }
-    } catch {
-      // not listening yet
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-  write("Server did not answer GET /api/agents within 60 s\n");
-  return 1;
+  return server ? 0 : 1;
 }
 
-function stopServer(): Promise<number> {
-  const child = server;
+async function stopServer(): Promise<number> {
+  const running = server;
   server = null;
-  if (!child || child.exitCode !== null) return Promise.resolve(0);
-  return new Promise((resolve) => {
-    const forceKill = setTimeout(() => {
-      child.kill("SIGKILL");
-      resolve(0);
-    }, 10_000);
-    child.on("exit", () => {
-      clearTimeout(forceKill);
-      resolve(0);
-    });
-    child.kill();
-  });
+  if (running) await running.stop();
+  return 0;
 }
 
 const pipeline: Array<[string, string, () => Promise<number>]> = [
@@ -170,6 +128,7 @@ const pipeline: Array<[string, string, () => Promise<number>]> = [
   ["baseline regression TC-C08-01/02", "npm run test:c08", npm("test:c08")],
   ["CR-08 acceptance TC-CR08-01..06", "npm run test:cr08", npm("test:cr08")],
   ["stop production server", "kill", stopServer],
+  ["operational trials C10 (own server and c10.db)", "npm run trial:c10", npm("trial:c10")],
 ];
 
 function currentCommit() {

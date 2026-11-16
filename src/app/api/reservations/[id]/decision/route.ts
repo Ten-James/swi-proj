@@ -47,6 +47,6 @@ export async function PATCH(
     }
     return NextResponse.json({ id: result.reservation.id, status: result.reservation.status });
   } catch (error) {
-    return apiErrorResponse(error);
+    return apiErrorResponse(error, "PATCH /api/reservations/[id]/decision");
   }
 }
