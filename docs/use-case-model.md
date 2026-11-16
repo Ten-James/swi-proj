@@ -52,6 +52,10 @@ If any rule fails, no Reservation is created.
 UC2 uses the availability rule represented by UC7. The system commits a successful
 request directly as `CONFIRMED`; there is no separate confirmation use case.
 
+*(v0.3, CR-08)* Alternative flow: the requested interval is not on the 15-minute
+grid or is longer than 4 hours (BR-07) → the request is rejected as invalid input
+and no Reservation is created.
+
 ## UC3 — Zrušení rezervace
 
 The original diagram says “Mazání rezervace”.

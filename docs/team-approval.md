@@ -55,3 +55,24 @@ Approved by:
 Date: 2026-10-19
 
 Notes: date of baseline commit `6fd380f`.
+
+---
+
+## Specification Baseline v0.3 (CR-08, C08/C09)
+
+Status: [ ] Approved by team
+
+Accepted key decision:
+- `BR-07`: a new Reservation lies on the 15-minute UTC grid and lasts at most 4 hours;
+- `REQ-13`: a violating Create is rejected as invalid input (`400`), nothing is stored;
+- pre-v0.3 Reservations are not re-validated by Cancel or Approve;
+- Availability (OP-02) still accepts any BR-01 interval.
+
+Approved by:
+- 
+- 
+- 
+
+Date:
+
+Notes: peer review of CR-08 requested from James Indrák.

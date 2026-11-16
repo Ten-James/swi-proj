@@ -31,6 +31,8 @@ export type ReservationRuleCode =
   | "INVALID_STATE"
   | "AFTER_START"
   | "START_IN_PAST"
+  | "NOT_SLOT_ALIGNED"
+  | "DURATION_EXCEEDED"
   | "AGENT_INACTIVE"
   | "AGENT_UNAVAILABLE";
 
@@ -78,6 +80,41 @@ export function assertStartsInFuture(interval: { startTime: Date }, now: Date): 
     throw new ReservationRuleViolation(
       "START_IN_PAST",
       "Reservation must start after the current time",
+    );
+  }
+}
+
+/** BR-07 (v0.3, CR-08): length of one slot of the reservation grid. */
+export const SLOT_MINUTES = 15;
+
+/** BR-07 (v0.3, CR-08): longest allowed new Reservation; exactly this length is allowed. */
+export const MAX_DURATION_MINUTES = 4 * 60;
+
+const MINUTE_MS = 60 * 1000;
+
+/**
+ * BR-07: an instant lies on the 15-minute grid in UTC. Every real-world offset is a
+ * multiple of 15 minutes, so this also holds in the client's local time.
+ */
+export function isSlotAligned(instant: Date): boolean {
+  return instant.getTime() % (SLOT_MINUTES * MINUTE_MS) === 0;
+}
+
+/**
+ * BR-07: a new Reservation lies on the slot grid and lasts at most MAX_DURATION_MINUTES.
+ * Checked by Create only, after BR-01/BR-06; stored Reservations are never re-validated.
+ */
+export function assertSlotGranularity(interval: TimeInterval): void {
+  if (!isSlotAligned(interval.startTime) || !isSlotAligned(interval.endTime)) {
+    throw new ReservationRuleViolation(
+      "NOT_SLOT_ALIGNED",
+      `startTime and endTime must lie on the ${SLOT_MINUTES}-minute grid (UTC, no seconds)`,
+    );
+  }
+  if (interval.endTime.getTime() - interval.startTime.getTime() > MAX_DURATION_MINUTES * MINUTE_MS) {
+    throw new ReservationRuleViolation(
+      "DURATION_EXCEEDED",
+      `A Reservation may last at most ${MAX_DURATION_MINUTES / 60} hours`,
     );
   }
 }

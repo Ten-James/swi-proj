@@ -139,3 +139,12 @@ Each diagram is available as Mermaid source, Graphviz DOT, SVG and PNG.
 - [DOT](diagrams/dot/16-gantt-reservation-overview-example.dot)
 - [SVG](diagrams/svg/16-gantt-reservation-overview-example.svg)
 - [PNG](diagrams/png/16-gantt-reservation-overview-example.png)
+
+
+## Activity — Create Reservation v0.3 (CR-08)
+
+Zdroj je jen v Mermaid (GitHub ho vykreslí v
+[specification.md](specification.md#activity--create-reservation-v03)); DOT/SVG/PNG
+pro v0.3 nebyly generovány.
+
+- [Mermaid](diagrams/mermaid/17-activity-create-v03.mmd)

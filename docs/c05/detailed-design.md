@@ -2,7 +2,8 @@
 
 Vstup: architektura C03 ([architecture.md](../c03/architecture.md),
 [ADR-001](../c03/adr/ADR-001-reservation-lifecycle-owner.md)) a specifikace v0.2
-(`BR-01` až `BR-05`, `REQ-06` až `REQ-12`).
+(`BR-01` až `BR-05`, `REQ-06` až `REQ-12`); doplněno o `BR-06` (v0.2.1) a `BR-07` /
+`REQ-13` (v0.3, CR-08).
 
 ## 1. Vybraná architektonická jednotka
 
@@ -51,6 +52,7 @@ jako jednotky.
 | Podmínky potvrzení | `reservation-policy.assertCanConfirm` | `agent.isActive`, nález překryvu (vstupy) | Poslední kontrola před přechodem na `CONFIRMED`. |
 | Překryv blokuje Create i Approve | `reservation-policy.assertNoConfirmedOverlap` | nález překryvu (vstup) | Jedno rozhodnutí `BR-02` pro obě cesty k `CONFIRMED` (v0.2.1). |
 | Začátek v budoucnosti | `reservation-policy.assertStartsInFuture` | `startTime`, `now` | `BR-06` (v0.2.1): stejný zdroj času jako `BR-03`. |
+| Mřížka a max. délka | `reservation-policy.assertSlotGranularity` (+ `isSlotAligned`, `SLOT_MINUTES`, `MAX_DURATION_MINUTES`) | `startTime`, `endTime` | `BR-07` (v0.3, CR-08): čistá kontrola požadovaného intervalu, nezávislá na čase a DB. |
 | Důvod odmítnutí | `ReservationRuleViolation` (`code: ReservationRuleCode`) | `code`, `message` | Doménový kontrakt selhání bez HTTP. |
 | Dotaz na překryv, expirace, zápisy, transakce, čas `now` | `reservation-service` (`findConfirmedOverlap`, `expirePendingReservations`) | Prisma `tx`, tabulka Reservation | Jediný zapisovatel (ADR-001); rozhoduje o I/O. |
 | Mapování selhání na HTTP | `api-error-response.ts` (`ruleViolationStatus`) + Route Handlers | `code → status` | Adaptér; jediné místo, kde se doménový kód stává HTTP kódem. |
@@ -73,6 +75,8 @@ Selhání pravidla je vždy `ReservationRuleViolation` s jedním z kódů:
 | `INVALID_STATE` | zdrojový stav nepovoluje přechod | 409 |
 | `AFTER_START` | `now >= startTime` | 409 |
 | `START_IN_PAST` | `BR-06` – nová Reservation začíná v `now` nebo dříve | 400 |
+| `NOT_SLOT_ALIGNED` | `BR-07` (v0.3) – `startTime` nebo `endTime` mimo 15min mřížku v UTC | 400 |
+| `DURATION_EXCEEDED` | `BR-07` (v0.3) – `endTime − startTime` > 4 h | 400 |
 | `AGENT_INACTIVE` | `BR-05` | 409 |
 | `AGENT_UNAVAILABLE` | `BR-02` – existuje překrývající `CONFIRMED` | 409 |
 
@@ -115,6 +119,16 @@ assertNoConfirmedOverlap(hasConfirmedOverlap, message?) : void
 
 assertStartsInFuture(interval, now) : void
   Failures: START_IN_PAST pokud interval.startTime <= now   (BR-06)
+
+assertSlotGranularity(interval) : void                      (BR-07, v0.3)
+  Preconditions: interval prošel BR-01 (start < end) a BR-06
+  Failures (v tomto pořadí):
+    - NOT_SLOT_ALIGNED   !isSlotAligned(startTime) nebo !isSlotAligned(endTime)
+    - DURATION_EXCEEDED  endTime − startTime > MAX_DURATION_MINUTES (240 min)
+  Pozn.: přesně 240 min projde; čas `now` ani DB nepotřebuje.
+
+isSlotAligned(instant) : boolean
+  Postcondition: true <=> instant.getTime() mod (SLOT_MINUTES · 60 000) = 0   (SLOT_MINUTES = 15)
 
 assertWithinQuota(activeCount, maxReservations) : void
   Failures: QUOTA_EXCEEDED pokud activeCount >= maxReservations
@@ -207,7 +221,7 @@ sequenceDiagram
 
 | Operation | Responsibility | Input → Output | Preconditions | Postconditions | Side effects | Failure behavior |
 |---|---|---|---|---|---|---|
-| `createReservation` | vytvořit Reservation | `userId, agentId, interval, note` → Reservation | interval validován adaptérem (`start < end`, offset) | stav dle `initialStatus`; `BR-02`, `BR-04`, `BR-06` platí | expirace propadlých PENDING, insert | `START_IN_PAST`, 404 Agent, `AGENT_UNAVAILABLE`, 401 User, `QUOTA_EXCEEDED` |
+| `createReservation` | vytvořit Reservation | `userId, agentId, interval, note` → Reservation | interval validován adaptérem (`start < end`, offset) | stav dle `initialStatus`; `BR-02`, `BR-04`, `BR-06`, `BR-07` platí | expirace propadlých PENDING, insert | `START_IN_PAST`, `NOT_SLOT_ALIGNED`, `DURATION_EXCEEDED`, 404 Agent, `AGENT_UNAVAILABLE`, 401 User, `QUOTA_EXCEEDED` |
 | `cancelReservation` | zrušit nebo expirovat | `id, actor, now` → `{reservation, expired}` | Reservation existuje | stav dle `planCancel` | update `status` | 404, `NOT_OWNER`, `INVALID_STATE`, `AFTER_START` |
 | `decideReservation` | Approve/Reject | `id, decision, now` → `{reservation, expired}` | Reservation existuje | stav dle `planDecision` + `assertCanConfirm` | update `status` | 404, `INVALID_STATE`, `AGENT_INACTIVE`, `AGENT_UNAVAILABLE` |
 | `findConfirmedOverlap` | dotaz `BR-02` | `client, agentId, interval, excludeId?` → `{id} \| null` | – | výsledek odpovídá `intervalsOverlap` | čtení | – |
@@ -244,6 +258,22 @@ if confirmedOverlap(agent, interval)-> AGENT_UNAVAILABLE   # overlapBounds → f
 
 Pořadí kontrol je záměrné a zachovává chování ověřené C02 sadou.
 
+### Create (`createReservation`) — pořadí kontrol (v0.3)
+
+```text
+adaptér: parseInterval (BR-01)      -> 400 invalid range
+assertStartsInFuture (BR-06)        -> START_IN_PAST
+assertSlotGranularity (BR-07)       -> NOT_SLOT_ALIGNED | DURATION_EXCEEDED   # před transakcí, bez DB
+transakce: Agent existuje a je aktivní (BR-05) -> 404
+           assertNoConfirmedOverlap (BR-02)   -> AGENT_UNAVAILABLE
+           assertWithinQuota (BR-04)          -> QUOTA_EXCEEDED
+           insert se stavem initialStatus(agent)
+```
+
+`BR-07` stojí za `BR-06`, aby se nezměnil výsledek existujícího testu se začátkem v
+minulosti, a před DB kontrolami, protože jde o vstupní chybu. Cancel a Decision
+`BR-07` nevolají – Reservation uložené před v0.3 se znovu nevalidují.
+
 ## 9. Rozhodnutí záměrně ponechaná v kódu
 
 - Konkrétní Prisma dotazy, `select`/`orderBy`, sestavení filtrů (hranice překryvu
@@ -271,6 +301,8 @@ Implementace: `scripts/c05-unit-tests.ts`, spuštění `npm run test:c05`
 | failure behavior `assertWithinQuota` | při `count = max` je `QUOTA_EXCEEDED` | unit | `quota: below limit passes, at limit fails …` |
 | idempotence `BR-03` | opakované zrušení nemění stav | unit | `cancel: repeated cancel is idempotent` |
 | failure behavior `assertStartsInFuture` (`BR-06`) | začátek přesně v `now` i dříve je `START_IN_PAST` | unit | `future start: …` |
+| contract `assertSlotGranularity` (`BR-07`, v0.3) | minuta/sekunda/ms mimo mřížku → `NOT_SLOT_ALIGNED`; 4:00 projde, 4:15 → `DURATION_EXCEEDED`; offset `+05:45` se hodnotí na instantu | unit | `slot granularity: …` |
+| collaboration Create ↔ HTTP ↔ SQLite (`BR-07`) | 400 s kódem a žádný nový řádek; stará data lze schválit/zrušit; pořadí `BR-06` → `BR-07` → `BR-05` | integration | `npm run test:cr08` (TC-CR08-01 … 07) |
 | contract `assertNoConfirmedOverlap` | Create i Approve hlásí `AGENT_UNAVAILABLE` | unit | `overlap rule: …` |
 | collaboration service ↔ policy ↔ Prisma ↔ adaptér | konflikt vzniklý během čekání nepotvrdí Approve (409); souběžné Create/Approve; chybný payload → 400 | component/integration | C02 scénáře (`npm run test:c02`, vyžaduje běžící aplikaci) |
 
@@ -303,3 +335,4 @@ Implementace: `scripts/c05-unit-tests.ts`, spuštění `npm run test:c05`
 | Překryv při Create rozhoduje policy | YES (v0.2.1) | `assertNoConfirmedOverlap` v `createReservation` | původně `ApiError` 409 v service – update code |
 | `BR-06` začátek v budoucnosti | YES (v0.2.1) | `assertStartsInFuture`, unit + C02 test | nové pravidlo z code review |
 | `BR-05` při Create v policy | NO (vědomě) | `createReservation` (404) | keep – viz §9 |
+| `BR-07` mřížka a max. délka (v0.3, CR-08) | YES (C09) | `assertSlotGranularity` v `createReservation`; unit + `test:cr08` | nové pravidlo z CR-08 |

@@ -1,0 +1,15 @@
+flowchart TD
+  A([User submits Agent, interval, note]) --> B{BR-01: valid instants with offset, start < end?}
+  B -- no --> X1[400 invalid range — nothing stored]
+  B -- yes --> C{BR-06: startTime > currentTime?}
+  C -- no --> X2[400 START_IN_PAST — nothing stored]
+  C -- yes --> D{BR-07: on 15-min grid and at most 4 h?}
+  D -- not aligned --> X3[400 NOT_SLOT_ALIGNED — nothing stored]
+  D -- too long --> X4[400 DURATION_EXCEEDED — nothing stored]
+  D -- yes --> E{BR-05: Agent exists and active?}
+  E -- no --> X5[404 — nothing stored]
+  E -- yes --> F{BR-02: overlapping CONFIRMED?}
+  F -- yes --> X6[409 AGENT_UNAVAILABLE — nothing stored]
+  F -- no --> G{BR-04: below active limit?}
+  G -- no --> X7[403 QUOTA_EXCEEDED — nothing stored]
+  G -- yes --> H[(Create CONFIRMED or PENDING_APPROVAL)]
