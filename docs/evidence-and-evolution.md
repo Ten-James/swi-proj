@@ -675,6 +675,8 @@ Migrace: žádná nová, `npm run db:deploy` na existující DB nic nemění.
 **Testované commity:** kolo 1 `9d3efa1` (produkt beze změny proti C09 RC `abeb5d7`:
 `git diff abeb5d7 9d3efa1 -- src prisma` je prázdný) a kolo 2 `f045666` (minimální
 logování, verze 0.3.1); `npm run verify` včetně C10 na `d39cb93` → **PASS** 15/15.
+CI na `648744d` ([run 43901535031](https://github.com/Ten-James/swi-proj/actions/runs/43901535031),
+`ubuntu-latest`) → **success**, včetně kroku C10 a log kontraktu.
 Prostředí: Linux, Node v22.21.1, `next build` + `next start`, izolovaná SQLite `c10.db`
 (journal mode `delete`), vlastní server na portu 3200, jen testovací data.
 
