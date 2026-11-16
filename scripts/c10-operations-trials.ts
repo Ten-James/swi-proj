@@ -223,6 +223,7 @@ async function main() {
     const before = (await readAgentReservations(agent.id)).length;
     const target = { agentId: agent.id, startTime: day(13), endTime: day(14) };
     const windows: string[] = [];
+    const outageWindows: Array<{ label: string; text: string }> = [];
 
     for (const mode of ["EXCLUSIVE", "IMMEDIATE"] as const) {
       const label = mode === "EXCLUSIVE" ? "S3a" : "S3b";
@@ -240,7 +241,9 @@ async function main() {
       check(s3.verified, true, `${label}: GET během výpadku vrátil ${read.value.status}`);
       const afterFault = (await readAgentReservations(agent.id)).length;
       s3.pass = check(s3.verified, afterFault === before, `${label}: po uvolnění nezávislé čtení — řádků Agenta ${afterFault} (před výpadkem ${before}), zápis se neprovedl`) && s3.pass;
-      windows.push(`--- ${label} (${mode}) ---\n${await logSince(log1, from)}`);
+      const windowText = await logSince(log1, from);
+      outageWindows.push({ label, text: windowText });
+      windows.push(`--- ${label} (${mode}) ---\n${windowText}`);
     }
     lock.close();
 
@@ -295,6 +298,12 @@ async function main() {
     contractOk = check(contract, failure.operation, "porucha: log obsahuje operaci / route") && contractOk;
     contractOk = check(contract, failure.failureType, "porucha: log obsahuje typ problému (zámek / timeout DB)") && contractOk;
     contractOk = check(contract, failure.outcome, "porucha: log obsahuje pozorovaný výsledek (outcome)") && contractOk;
+    for (const window of outageWindows) {
+      const events = window.text.split("\n").filter((line) => line.includes('"event":"technical_failure"'));
+      const operations = events.map((line) => /"operation":"([^"]+)"/.exec(line)?.[1] ?? "?");
+      contractOk = check(contract, events.length >= 2,
+        `${window.label}: událost technical_failure pro každý selhaný požadavek (${events.length}×: ${operations.join(", ") || "žádná"})`) && contractOk;
+    }
     const allLogs = `${readFileSync(log1, "utf8")}\n${await logSince(log2, 0)}`;
     const leaked = secrets.filter((secret) => secret && allLogs.includes(secret));
     contractOk = check(contract, leaked.length === 0, `logy neobsahují e-maily, poznámky, hesla, session tokeny ani jejich hash (${leaked.length} nálezů)`) && contractOk;

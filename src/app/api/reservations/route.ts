@@ -55,6 +55,6 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    return apiErrorResponse(error);
+    return apiErrorResponse(error, "POST /api/reservations");
   }
 }
