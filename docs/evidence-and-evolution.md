@@ -669,3 +669,90 @@ Migrace: žádná nová, `npm run db:deploy` na existující DB nic nemění.
 - Co by vedlo na **HOLD:** FAIL nezávislého checkoutu nebo nález v review, který
   zpochybní AC (např. 4 h nestačí pro „Data Pipeline Bot“ → zpět do C08, varianta D).
 - Zelené CI samo o sobě není souhlas s nasazením.
+
+## C10 — Provozní situace a logy
+
+**Testované commity:** kolo 1 `9d3efa1` (produkt beze změny proti C09 RC `abeb5d7`:
+`git diff abeb5d7 9d3efa1 -- src prisma` je prázdný) a kolo 2 `f045666` (minimální
+logování, verze 0.3.1); `npm run verify` včetně C10 na `d39cb93` → **PASS** 15/15.
+Prostředí: Linux, Node v22.21.1, `next build` + `next start`, izolovaná SQLite `c10.db`
+(journal mode `delete`), vlastní server na portu 3200, jen testovací data.
+
+Opakovatelně: `npm run build && npm run trial:c10` (je i krokem `npm run verify` a CI).
+Skript před každou situací uvádí očekávaný výsledek a stav ověřuje vlastním SQL
+čtením (`scripts/lib/db-oracle.ts`), ne logem. Surový výstup aplikace ukládá beze
+změny do `release/c10/<kolo>/server-*.log`; vlastní časovou osu testera vede zvlášť
+(`timeline.json`, `report.md`), aby se nemíchalo, co tvrdí aplikace a co pozoroval tester.
+
+**Jak byla vyvolána porucha:** smazání nebo přejmenování souboru SQLite za běhu výpadek
+nezpůsobí (proces má otevřený file descriptor), proto testovací skript drží zámek z
+jiného DB spojení: `BEGIN EXCLUSIVE` (DB nedostupná pro čtení i zápis) a `BEGIN
+IMMEDIATE` (nedostupné jen zápisy), pak `ROLLBACK`. Aplikace se nerestartuje.
+
+| Situace | Očekávaný a skutečný výsledek | Jak jste správnost ověřili | Co ukazují logy / je log potřeba? |
+|---|---|---|---|
+| Úspěšné potvrzení | Expected: Create → `201 PENDING_APPROVAL`, Admin APPROVE → `200 CONFIRMED`. Actual: přesně tak (kolo 1 i 2). **PASS** | odpověď API + vlastní SQL čtení: B1 `CONFIRMED [2035-06-01T10:00Z, 11:00Z)`, 0 překrývajících se `CONFIRMED` dvojic | aplikace nic nevypsala. **Log není potřeba** — výsledek nese odpověď a uložený stav |
+| Zamítnutá kolize | Expected: B2 `[10:30,11:30)` čekala už před potvrzením B1; APPROVE B2 → `409 AGENT_UNAVAILABLE`; nový překrývající Create → `409`. Actual: přesně tak. **PASS** | SQL čtení: B2 zůstala `PENDING_APPROVAL`, B1 `CONFIRMED` beze změny, počet řádků Agenta se nezměnil, 0 překryvů | aplikace nic nevypsala. **Log záměrně ne**: jde o běžné doménové zamítnutí (`BR-02`), ne technickou chybu; klient dostal kód i důvod, stav je v DB. Audit rozhodnutí Admina by patřil do perzistentní tabulky, ne do provozního logu (šum, identita uživatele) |
+| Technická porucha a obnova | Expected: během zámku `500` po ~5 s (busy timeout better-sqlite3) a žádný zápis; po uvolnění bez restartu ověřit, že zápis neproběhl, teprve pak jeden opakovaný Create → `201`. Actual: S3a POST `500` za 5,0 s, GET `500` za 5,0 s; S3b POST `500` za 5,0 s, **GET `500` také** (viz závěr); po `ROLLBACK` POST `201`, GET `200`. **PASS** | SQL čtení po každém uvolnění zámku: počet řádků Agenta stejný jako před výpadkem (2 = 2), tedy výsledek transakce znám a nic se nezapsalo. Až pak jediný opakovaný zápis a kontrola, že Reservation `[13:00,14:00)` existuje právě 1× | kolo 1: jen Next.js vypsal ~20řádkový blok `⨯ Error [PrismaClientKnownRequestError] … Operation has timed out`, `code: 'P1008'`, `SocketTimeout`, se stackem do minifikovaných chunků — **bez času, bez route a bez výsledku**; u ošetřené cesty (S3b POST) totéž z `console.error`. Kolo 2: jedna JSON událost `technical_failure` na každý selhaný požadavek s časem, operací, kódem chyby, voláním DB, `SQLITE_BUSY/SocketTimeout` a výsledkem. **Log je potřeba** |
+| Restart aplikace | Expected: po SIGTERM proces skončí, po startu nad stejnou DB zůstane B1 `CONFIRMED` a další Create projde. Actual: exit code `143`, start za ~1,2 s, `GET` vrací B1 `CONFIRMED`, Create `[15:00,16:00)` → `201`. **PASS** | API po restartu + SQL čtení B1 a nového řádku | kolo 1: start jen `✓ Ready in 214ms` bez času a verze, **zastavení nezanechá nic**. Kolo 2: `app_start` (čas, verze, pid, DB soubor) a `app_stop` (čas, exit code). Potřeba: ohraničit dobu nedostupnosti a poznat, která verze nad kterou DB běží |
+
+Výňatek kola 1 (S3a, POST během úplného výpadku; celý blok má 21 řádků):
+
+```text
+⨯ Error [PrismaClientKnownRequestError]:
+Invalid `prisma.session.findUnique()` invocation:
+Operation has timed out
+    at async i (.next/server/chunks/_0htkyro._.js:1:22210)
+    …
+  code: 'P1008',
+  meta: { modelName: 'Session', driverAdapterError: Error [DriverAdapterError]: SocketTimeout … }
+```
+
+Výňatek kola 2 (`release/c10/2/server-1.log`, kompletní seznam událostí aplikace):
+
+```text
+{"ts":"2026-11-16T15:51:25.296Z","level":"info","event":"app_start","version":"0.3.1","pid":14877,"node":"v22.21.1","database":"file:…/c10.db"}
+{"ts":"2026-11-16T15:51:32.547Z","level":"error","event":"technical_failure","component":"api","operation":"POST /api/reservations","errorType":"PrismaClientKnownRequestError","errorCode":"P1008","dbCall":"session.findUnique","dbModel":"Session","driverError":"SQLITE_BUSY/SocketTimeout","outcome":"HTTP 500 (unhandled by the route)"}
+{"ts":"2026-11-16T15:51:37.578Z","level":"error","event":"technical_failure","component":"api","operation":"GET /api/reservations","errorType":"PrismaClientKnownRequestError","errorCode":"P1008","dbCall":"reservation.updateMany","dbModel":"Reservation","driverError":"SQLITE_BUSY/SocketTimeout","outcome":"HTTP 500 (unhandled by the route)"}
+{"ts":"2026-11-16T15:51:42.912Z","level":"error","event":"technical_failure","component":"api","operation":"POST /api/reservations","errorType":"PrismaClientKnownRequestError","errorCode":"P1008","dbCall":"reservation.updateMany","dbModel":"Reservation","driverError":"SQLITE_BUSY/SocketTimeout","outcome":"HTTP 500 Internal server error"}
+{"ts":"2026-11-16T15:51:47.944Z","level":"error","event":"technical_failure","component":"api","operation":"GET /api/reservations","errorType":"PrismaClientKnownRequestError","errorCode":"P1008","dbCall":"reservation.updateMany","dbModel":"Reservation","driverError":"SQLITE_BUSY/SocketTimeout","outcome":"HTTP 500 (unhandled by the route)"}
+{"ts":"2026-11-16T15:51:48.611Z","level":"info","event":"app_stop","pid":14877,"exitCode":143}
+```
+
+(Next.js u neošetřených chyb dál vypisuje i svůj vlastní blok `⨯ Error …`; nová
+událost ho nenahrazuje, jen doplňuje čas, operaci a výsledek.)
+
+**Co bylo doplněno (commit `f045666`, +101/−6 řádků v `src/`):**
+`src/lib/ops-log.ts` (jednořádková JSON událost; zapisuje jen klasifikaci chyby — typ,
+Prisma kód, volání a model DB, kód driveru — **nikdy text zprávy datové vrstvy,
+tělo požadavku, e-mail, poznámku, heslo, session token ani jeho hash**),
+`apiErrorResponse(error, operation)` místo holého `console.error(error)`,
+`src/instrumentation.ts` (`onRequestError` pro neošetřené chyby rout) a
+`src/instrumentation-node.ts` (`app_start`, `app_stop`). Úspěch a doménová zamítnutí
+se nelogují. Testovací skript v obou kolech kontroloval, že žádný server log
+neobsahuje testovací e-maily, poznámky, hesla, cookies ani hash session tokenu
+(0 nálezů).
+
+**BLOCKED:** žádný pokus. Mimo rozsah zůstalo neřízené ukončení (`SIGKILL`, pád
+procesu): `app_stop` pak nevznikne a nečisté ukončení se pozná jen podle `app_start`
+bez předchozího `app_stop`.
+
+**Závěr.**
+
+- *Které události má smysl logovat:* technické poruchy (čas, operace/route, typ a kód
+  chyby, výsledek) a start/stop procesu (verze, DB, exit code). Ne úspěšné operace a
+  ne doménová zamítnutí — ty mají svůj záznam v odpovědi a v DB a jejich logování by
+  bylo šumem s osobními údaji.
+- *Co jsme z logů skutečně zjistili:* kdy a ve které operaci porucha nastala
+  (POST `/api/reservations` selhal už při čtení Session, tedy mimo `try/catch` routy,
+  zatímco při zámku jen pro zápis selhal až zápis v Reservation Service). Dál to, že
+  příčinou byl zámek SQLite (`SQLITE_BUSY` → `P1008` po 5 s) a že aplikace odpověděla
+  `500` a sama se po uvolnění zotavila. Také kdy proces skončil (exit 143) a kdy a
+  v jaké verzi znovu nastartoval. A nečekaný nález: **čtecí `GET /api/reservations`
+  selže i při výpadku jen pro zápis**, protože líná expirace (`REQ-12`) při čtení
+  zapisuje `EXPIRED`. Přehled tedy závisí na zapisovatelnosti DB; jde o vstup pro
+  případný budoucí CR, v C10 se neměnilo.
+- *Co jsme museli ověřit jinak:* že se během poruchy nic nezapsalo a že zápis lze
+  bezpečně zopakovat (vlastní SQL čtení před jediným opakováním), že potvrzená
+  Reservation po restartu stále platí a že kolize nezměnila stav. Log ukazuje jen
+  reakci aplikace, ne obsah DB.

@@ -162,3 +162,21 @@ npm run release:manifest   # jen manifest (po npm run build)
 
 Release záznam (before/after, testy, CI, clean checkout, artefakt, rollback a
 rozhodnutí o RC): [docs/evidence-and-evolution.md](docs/evidence-and-evolution.md#c09--integration-ci-and-release-record).
+
+## C10 — provozní situace a logy
+
+```bash
+npm run build
+npm run trial:c10          # úspěch, kolize, výpadek DB + obnova, restart; vlastní c10.db a port 3200
+```
+
+Skript vyvolá výpadek DB zámkem SQLite z jiného spojení, stav ověřuje vlastním SQL
+čtením a kontroluje log kontrakt. Výsledky jsou v `release/c10/<kolo>/report.md`
+(proměnná `C10_ROUND`), surový výstup aplikace v `server-*.log`. Je i krokem
+`npm run verify`.
+
+Aplikace zapisuje na stdout/stderr jen tyto JSON události (`src/lib/ops-log.ts`):
+`app_start` (verze, pid, DB soubor), `app_stop` (exit code) a `technical_failure`
+(operace, typ a kód chyby, volání DB, výsledek). Úspěšné operace a doménová zamítnutí
+se nelogují; osobní údaje, hesla, tokeny ani texty chyb datové vrstvy se nezapisují.
+Záznam a závěry: [docs/evidence-and-evolution.md](docs/evidence-and-evolution.md#c10--provozní-situace-a-logy).
