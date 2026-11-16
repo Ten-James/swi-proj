@@ -327,15 +327,17 @@ svg.dia [data-region-highlighted='true'] .edge.bad { stroke-width: 4; }
 .code-panel {
   border-radius: 18px;
   overflow: hidden;
-  background: #0d1117;
+  background: var(--card);
+  border: 1px solid var(--line);
   padding: 30px 36px;
   font-size: 23px;
   line-height: 1.55;
 }
 
 .code-panel pre { font-family: var(--mono); background: transparent !important; }
-.code-panel [data-highlighted='true'] { background: rgba(5, 150, 105, 0.28) !important; border-left: 4px solid #34d399; margin-left: -20px; padding-left: 16px; }
-.code-panel [data-dimmed='true'] { opacity: 0.35 !important; }
+.code-panel pre code { display: block; background: none; padding: 0; border-radius: 0; }
+.code-panel [data-highlighted='true'] { background: rgba(5, 150, 105, 0.12) !important; border-left: 4px solid var(--confirmed); margin-left: -20px; padding-left: 16px; }
+.code-panel [data-dimmed='true'] { opacity: 1 !important; }
 
 /* ---------- Timeline ---------- */
 
@@ -379,3 +381,13 @@ ul.clean li::before {
 ul.clean.red li::before { background: var(--rejected); }
 ul.clean.small li { font-size: 23px; }
 ul.clean.small li::before { top: 13px; }
+
+/* ---------- Dense tables (status report, DD → test) ---------- */
+
+table.t.compact { font-size: 22px; }
+table.t.compact th { font-size: 15px; padding-bottom: 12px; }
+table.t.compact td { padding: 13px 16px 13px 0; }
+table.t.compact td.mono { font-size: 19px; }
+table.t.compact .pill { font-size: 15px; padding: 5px 12px; }
+table.t.risk td { font-size: 20px; }
+

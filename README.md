@@ -89,3 +89,10 @@ Kontrola hlídá, že změny životního cyklu Reservation zapisuje pouze
 `src/lib/reservation-service.ts` a že tento vlastník používá explicitní databázové
 transakce.
 
+
+## C04 — kvalita a měření
+
+Quality concern je integrita dat pod souběhem (`BR-02`, `BR-04`, `REQ-07`,
+`REQ-10`). Kritéria QC-01 až QC-04, podmínky měření, výsledky a rozhodnutí jsou v
+[docs/c04/quality-and-measurement.md](docs/c04/quality-and-measurement.md).
+Měření je součástí `npm run test:c02` (scénáře `C04 QC-01`, `QC-03`, `QC-04`).

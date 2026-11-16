@@ -68,78 +68,6 @@ function Cylinder({ x, y, w, h, title, sub }: { x: number; y: number; w: number;
 }
 
 /* ------------------------------------------------------------------ */
-/* Core premise: allocate an agent by time, not by quantity            */
-/* ------------------------------------------------------------------ */
-
-function AllocationAxis() {
-  const hours = [9, 10, 11, 12]
-  return (
-    <g>
-      <line x1={40} y1={250} x2={720} y2={250} stroke="#0e1116" strokeWidth={2} />
-      {hours.map((h, i) => (
-        <g key={h}>
-          <line x1={40 + i * 226.7} y1={242} x2={40 + i * 226.7} y2={258} stroke="#0e1116" strokeWidth={2} />
-          <text className="t-label" x={40 + i * 226.7} y={286} textAnchor="middle">
-            {h}:00
-          </text>
-        </g>
-      ))}
-    </g>
-  )
-}
-
-const LANE = { x: 40, y: 30, w: 680, h: 196 }
-
-function BarLabel({ x, y, children, fill = '#fff' }: { x: number; y: number; children: string; fill?: string }) {
-  return (
-    <text x={x} y={y} style={{ fill, fontFamily: 'var(--mono)', fontWeight: 600, fontSize: 20 }}>
-      {children}
-    </text>
-  )
-}
-
-/** Quantity: every user holds a slice of the agent for the whole period. */
-export function ShareByQuantityDiagram() {
-  const users = ['Jana', 'Petr', 'Eva']
-  const h = (LANE.h - 16) / 3
-  return (
-    <svg className="dia" viewBox="0 0 760 300">
-      <rect x={LANE.x} y={LANE.y} width={LANE.w} height={LANE.h} rx={12} fill="#e8e5dc" />
-      {users.map((u, i) => (
-        <g key={u}>
-          <rect x={LANE.x + 8} y={LANE.y + 8 + i * h} width={LANE.w - 16} height={h - 6} rx={8} fill="#94a3b8" />
-          <BarLabel x={LANE.x + 26} y={LANE.y + 8 + i * h + h / 2 + 4}>{`${u} · 1/3 výkonu`}</BarLabel>
-        </g>
-      ))}
-      <AllocationAxis />
-    </svg>
-  )
-}
-
-/** Time: each user gets the whole agent in their own window. */
-export function AllocateByTimeDiagram() {
-  const slots = [
-    { u: 'Jana', from: 0 },
-    { u: 'Petr', from: 1 },
-    { u: 'Eva', from: 2 },
-  ]
-  const w = (LANE.w - 16) / 3
-  return (
-    <svg className="dia" viewBox="0 0 760 300">
-      <rect x={LANE.x} y={LANE.y} width={LANE.w} height={LANE.h} rx={12} fill="#e8e5dc" />
-      {slots.map(({ u, from }) => (
-        <g key={u}>
-          <rect x={LANE.x + 8 + from * w} y={LANE.y + 8} width={w - 6} height={LANE.h - 16} rx={8} fill="#059669" />
-          <BarLabel x={LANE.x + 26 + from * w} y={LANE.y + 92}>{u}</BarLabel>
-          <BarLabel x={LANE.x + 26 + from * w} y={LANE.y + 122}>celý agent</BarLabel>
-        </g>
-      ))}
-      <AllocationAxis />
-    </svg>
-  )
-}
-
-/* ------------------------------------------------------------------ */
 /* BR-01 / BR-02: half-open intervals                                  */
 /* ------------------------------------------------------------------ */
 
@@ -384,6 +312,76 @@ export function StateDiagram() {
         <StateBox x={1110} y={180} w={330} label="EXPIRED" fill="#7c3aed" />
         <path className="edge" d="M640 185 C 900 240, 940 412, 1108 412" markerEnd={a} />
         <EdgeLabel x={960} y={350} anchor="start">zruší vlastník / Admin</EdgeLabel>
+      </DiagramRegion>
+    </svg>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* C03 H1 / C05 §6: Approve with a conflict that appeared while waiting */
+/* ------------------------------------------------------------------ */
+
+const LIFELINES = [
+  { x: 130, title: 'Admin UI', sub: 'prohlížeč' },
+  { x: 450, title: 'Decision route', sub: 'Route Handler' },
+  { x: 800, title: 'Reservation', sub: 'Service' },
+  { x: 1150, title: 'Reservation', sub: 'Policy' },
+  { x: 1490, title: 'Prisma tx', sub: 'SQLite' },
+]
+
+function Message({ from, to, y, label, ret, bad }: { from: number; to: number; y: number; label: string; ret?: boolean; bad?: boolean }) {
+  const x1 = LIFELINES[from].x
+  const x2 = LIFELINES[to].x
+  const dir = Math.sign(x2 - x1)
+  return (
+    <g>
+      <path
+        className={`edge${bad ? ' bad' : ''}`}
+        d={`M${x1 + dir * 8} ${y} H${x2 - dir * 10}`}
+        style={ret && !bad ? { strokeDasharray: '8 7' } : undefined}
+        markerEnd={bad ? 'url(#seq-arrow-red)' : 'url(#seq-arrow)'}
+      />
+      <text
+        x={(x1 + x2) / 2}
+        y={y - 12}
+        textAnchor="middle"
+        style={{ fontFamily: 'var(--mono)', fontSize: 18, fill: bad ? '#e11d48' : '#2b303a', fontWeight: bad ? 600 : 400 }}
+      >
+        {label}
+      </text>
+    </g>
+  )
+}
+
+export function SequenceDiagram() {
+  return (
+    <svg className="dia" viewBox="0 0 1680 700">
+      <ArrowDefs id="seq" />
+      {LIFELINES.map((l) => (
+        <g key={l.x}>
+          <Box x={l.x - 125} y={0} w={250} h={84} title={l.title} sub={l.sub} soft={l.x === 130} />
+          <line x1={l.x} y1={84} x2={l.x} y2={690} stroke="#d9d5ca" strokeWidth={2} strokeDasharray="6 6" />
+        </g>
+      ))}
+
+      <DiagramRegion id="call">
+        <Message from={0} to={1} y={140} label="PATCH …/decision {APPROVE}" />
+        <Message from={1} to={2} y={200} label="decideReservation(id, APPROVE, now)" />
+        <Message from={2} to={4} y={260} label="begin tx · findUnique(reservation + agent)" />
+        <Message from={4} to={2} y={310} label="PENDING_APPROVAL" ret />
+      </DiagramRegion>
+
+      <DiagramRegion id="checks">
+        <Message from={2} to={3} y={370} label="planDecision(…) → CONFIRM_CHECKS" />
+        <Message from={2} to={4} y={430} label="findConfirmedOverlap(overlapBounds)" />
+        <Message from={4} to={2} y={480} label="overlap nalezen" ret />
+      </DiagramRegion>
+
+      <DiagramRegion id="conflict">
+        <Message from={2} to={3} y={540} label="assertCanConfirm(true, true)" />
+        <Message from={3} to={2} y={590} label="AGENT_UNAVAILABLE" bad />
+        <Message from={2} to={4} y={630} label="rollback · stav zůstává PENDING" />
+        <Message from={1} to={0} y={680} label="409 { code: AGENT_UNAVAILABLE }" bad />
       </DiagramRegion>
     </svg>
   )
